@@ -7,6 +7,13 @@
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Runs locally](https://img.shields.io/badge/runs%20locally-Ollama-black)
 
+<p align="center">
+  <img src="docs/demo.gif" alt="RepoLens demo: pick a repository, ask a question, watch the agent investigate and get an answer with verified citations" width="860">
+  <br><sub>A real session (the wait for the free API tier is time-lapsed): pick a repository, ask a question, watch the agent investigate, get an answer whose citations are verified and linked to GitHub.</sub>
+</p>
+
+**Live demo:** coming soon on Streamlit Community Cloud ([how it is deployed](docs/DEPLOY.md)). Running it locally takes two minutes — see [Quick start](#quick-start).
+
 ```text
 $ repolens ask https://github.com/psf/requests "How does requests decide whether to drop the Authorization header on a redirect?"
 
@@ -30,14 +37,15 @@ Grounding: 1/1 citations verified
 
 <sub>Real output from `qwen3:4b-instruct` running locally on a CPU-only laptop via Ollama (abridged).</sub>
 
-<p align="center">
-  <img src="docs/answer.png" alt="RepoLens answering a question about psf/requests with verified citations" width="820">
-  <br><sub>The web app answering a question about <code>psf/requests</code> with <code>gpt-oss-120b</code> on Groq: every citation is verified against the code the agent read and links to the exact lines on GitHub.</sub>
-</p>
+<details><summary><b>More screenshots</b></summary>
 
-<details><summary>Start screen</summary>
+An answer about <code>psf/requests</code> from <code>gpt-oss-120b</code> on Groq — every citation is verified against the code the agent read and links to the exact lines on GitHub:
 
-![RepoLens start screen: load a GitHub repository, an upload or a sample](docs/landing.png)
+![RepoLens answer with verified citations](docs/answer.png)
+
+Start screen — load a GitHub repository, an upload or a sample:
+
+![RepoLens start screen](docs/landing.png)
 
 </details>
 
@@ -255,6 +263,7 @@ pytest -q                       # unit + Streamlit AppTest smoke tests
 ruff check . && ruff format --check .
 ```
 
+Deploying your own public demo: see [`docs/DEPLOY.md`](docs/DEPLOY.md).
 
 ## License
 

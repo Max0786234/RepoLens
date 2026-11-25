@@ -83,3 +83,34 @@ def test_quick_mode_streams_answer(monkeypatch):
     message = at.session_state.messages[-1]
     assert message["mode"] == "quick" and "Fusion happens" in message["content"]
     assert message["hits"]
+
+
+def test_server_api_key_is_never_sent_to_the_browser(monkeypatch):
+    monkeypatch.setenv("REPOLENS_PROVIDER", "groq")
+    monkeypatch.setenv("GROQ_API_KEY", "gsk_SERVER_SECRET_123")
+    at = AppTest.from_file(APP, default_timeout=60).run()
+    assert not at.exception
+    values = [str(w.value) for w in at.text_input] + [str(w.placeholder or "") for w in at.text_input]
+    assert all("gsk_SERVER_SECRET_123" not in v for v in values)
+    key_box = next(w for w in at.text_input if w.label == "API key")
+    assert key_box.value == "" and "server" in (key_box.placeholder or "")
+
+
+def test_public_demo_hides_settings_and_caps_questions(monkeypatch):
+    from repolens.llm import ChatResponse
+
+    monkeypatch.setenv("REPOLENS_PUBLIC_DEMO", "1")
+    monkeypatch.setenv("REPOLENS_PROVIDER", "groq")
+    monkeypatch.setenv("GROQ_API_KEY", "gsk_SERVER_SECRET_123")
+    monkeypatch.setenv("REPOLENS_MAX_QUESTIONS", "1")
+    client = _scripted(monkeypatch, [ChatResponse("Fusion is in repolens/index.py:1-3.")] * 3)
+    at = _indexed_app()
+    assert not any(w.label in {"API key", "Base URL"} for w in at.text_input)
+    at.sidebar.radio[0].set_value("quick").run()
+    at.chat_input[0].set_value("reciprocal rank fusion").run()
+    at.chat_input[0].set_value("and the BM25 part?").run()
+    assert not at.exception
+    answers = [m for m in at.session_state.messages if m["role"] == "assistant"]
+    assert len(answers) == 1  # the second question was refused
+    assert any("public demo allows 1" in w.value for w in at.warning)
+    assert len(client.calls) == 1

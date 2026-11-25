@@ -20,7 +20,7 @@ from repolens.agent import Agent, AgentConfig
 from repolens.citations import linkify_citations
 from repolens.config import PROVIDERS, Settings
 from repolens.conversation import ConversationMemory, is_follow_up
-from repolens.ingest import IngestError, RepoSource, download_github_repo, is_github_url, save_uploads
+from repolens.ingest import IngestError, Limits, RepoSource, download_github_repo, is_github_url, save_uploads
 from repolens.llm import LLMError, make_chat_client
 from repolens.rag import retrieve, stream_answer
 from repolens.workspace import Workspace, open_index
@@ -192,8 +192,30 @@ def conversation_markdown(workspace: Workspace) -> str:
 
 # ---------------------------------------------------------------- sidebar
 
+
+def load_secrets_into_env() -> None:
+    """Streamlit Cloud keeps configuration in st.secrets: expose top-level values as env vars."""
+    try:
+        items = dict(st.secrets)
+    except Exception:  # no secrets.toml locally
+        return
+    for key, value in items.items():
+        if isinstance(value, (str, int, float, bool)) and key not in os.environ:
+            os.environ[key] = str(value)
+
+
+load_secrets_into_env()
 init_state()
 settings = Settings.from_env()
+# Public demo mode (e.g. Streamlit Community Cloud): one shared free-tier key, so cap usage.
+PUBLIC_DEMO = os.environ.get("REPOLENS_PUBLIC_DEMO", "").lower() in {"1", "true", "yes"}
+MAX_QUESTIONS = int(os.environ.get("REPOLENS_MAX_QUESTIONS", "8" if PUBLIC_DEMO else "0"))
+LIMITS = Limits(max_files=2_500, max_total_bytes=25_000_000, max_download_bytes=60_000_000) if PUBLIC_DEMO else Limits()
+SAMPLE_REPOS = {
+    "psf/requests": "https://github.com/psf/requests",
+    "pallets/flask": "https://github.com/pallets/flask",
+    "expressjs/express": "https://github.com/expressjs/express",
+}
 
 with st.sidebar:
     st.markdown(f"### 🔎 RepoLens <small>v{__version__}</small>", unsafe_allow_html=True)
@@ -201,24 +223,36 @@ with st.sidebar:
 
     provider_keys = list(PROVIDERS)
     default_provider = os.environ.get("REPOLENS_PROVIDER", "ollama")
-    provider_key = st.selectbox(
-        "Model provider",
-        provider_keys,
-        index=provider_keys.index(default_provider) if default_provider in provider_keys else 0,
-        format_func=lambda k: PROVIDERS[k].name,
-    )
+    if PUBLIC_DEMO:
+        # Public demo: the provider is fixed by the server and no connection settings are shown.
+        provider_key = default_provider if default_provider in provider_keys else "groq"
+    else:
+        provider_key = st.selectbox(
+            "Model provider",
+            provider_keys,
+            index=provider_keys.index(default_provider) if default_provider in provider_keys else 0,
+            format_func=lambda k: PROVIDERS[k].name,
+        )
     preset = PROVIDERS[provider_key]
     env_url = settings.llm_base_url if provider_key in {"ollama", "custom"} else preset.base_url
-    base_url = st.text_input("Base URL", value=env_url, key=f"url-{provider_key}")
-    api_key = ""
-    if preset.needs_api_key or provider_key == "custom":
-        api_key = st.text_input(
-            "API key",
-            value=secret(preset.api_key_env) or (settings.llm_api_key or ""),
-            type="password",
-            key=f"key-{provider_key}",
-            help="Kept in this browser session only; never written to disk.",
-        )
+    # The server's key is used server-side only. It is NEVER put into a widget: widget values
+    # are sent to the browser, so pre-filling a password field would leak the key to visitors.
+    server_key = secret(preset.api_key_env) or (settings.llm_api_key or "")
+    if PUBLIC_DEMO:
+        base_url, api_key = env_url, server_key
+    else:
+        base_url = st.text_input("Base URL", value=env_url, key=f"url-{provider_key}")
+        api_key = server_key
+        if preset.needs_api_key or provider_key == "custom":
+            typed = st.text_input(
+                "API key",
+                value="",
+                type="password",
+                key=f"key-{provider_key}",
+                placeholder="Using the key configured on the server" if server_key else "Paste your API key",
+                help="Optional if the server has a key. Kept in this session's memory only; never written to disk.",
+            )
+            api_key = typed or server_key
     models, probe_error = probe_models(base_url, api_key)
     non_chat = ("embed", "whisper", "guard", "orpheus", "tts", "allam")
     chat_models = [m for m in models if not any(word in m.lower() for word in non_chat)]
@@ -248,15 +282,19 @@ with st.sidebar:
         help="Agent is the most thorough. Quick is much faster on CPU-only machines. Search needs no model.",
     )
     embed_available = provider_key != "ollama" or any(settings.embed_model in m for m in models)
-    semantic = st.toggle(
-        "Semantic search (embeddings)",
-        value=embed_available and settings.embed_backend != "none",
-        help=f"Hybrid BM25 + vector search using `{settings.embed_model}`. Applied when a repository is indexed.",
-    )
+    if PUBLIC_DEMO:
+        semantic = settings.embed_backend != "none"
+    else:
+        semantic = st.toggle(
+            "Semantic search (embeddings)",
+            value=embed_available and settings.embed_backend != "none",
+            help=f"Hybrid BM25 + vector search using `{settings.embed_model}`. Applied when a repository is indexed.",
+        )
     if semantic and provider_key == "ollama" and models and not embed_available:
         st.caption(f"Run `ollama pull {settings.embed_model}` to enable embeddings.")
     with st.expander("Advanced"):
-        max_steps = st.slider("Agent tool budget (steps)", 2, 10, settings.max_agent_steps)
+        step_cap = 4 if PUBLIC_DEMO else 10
+        max_steps = st.slider("Agent tool budget (steps)", 2, step_cap, min(settings.max_agent_steps, step_cap))
         top_k = st.slider("Chunks retrieved (quick/search)", 3, 12, 6)
 
     if provider_key not in {"ollama", "custom"}:
@@ -336,16 +374,24 @@ if workspace is None:
                 st.error("That does not look like a GitHub repository URL.")
             else:
                 build_workspace(
-                    lambda: download_github_repo(url, settings.cache_dir, token=settings.github_token or None)
+                    lambda: download_github_repo(url, settings.cache_dir, LIMITS, token=settings.github_token or None)
                 )
     with tab_upload:
         uploads = st.file_uploader("Project ZIP or source files", type=UPLOAD_TYPES, accept_multiple_files=True)
         st.caption("Archives are extracted safely: path traversal, symlinks and oversized files are rejected.")
         if st.button("Index upload", type="primary", disabled=not uploads):
-            build_workspace(lambda: save_uploads([(f.name, f.getvalue()) for f in uploads], settings.cache_dir))
+            build_workspace(lambda: save_uploads([(f.name, f.getvalue()) for f in uploads], settings.cache_dir, LIMITS))
     with tab_sample:
-        st.markdown("Index **RepoLens itself** - a quick way to see the agent at work.")
-        if st.button("Index RepoLens", type="primary"):
+        st.markdown("Pick a well-known open-source project, or index **RepoLens itself**.")
+        cols = st.columns(len(SAMPLE_REPOS) + 1)
+        for col, (name, sample_url) in zip(cols, SAMPLE_REPOS.items()):
+            if col.button(name, use_container_width=True):
+                build_workspace(
+                    lambda u=sample_url: download_github_repo(
+                        u, settings.cache_dir, LIMITS, token=settings.github_token or None
+                    )
+                )
+        if cols[-1].button("Index RepoLens", type="primary", use_container_width=True):
             build_workspace(lambda: RepoSource(APP_DIR, "RepoLens (this project)", "local"))
     st.stop()
 
@@ -385,6 +431,14 @@ if not st.session_state.messages:
 prompt = st.chat_input("Ask about this codebase, e.g. 'How does authentication work?'")
 if st.session_state.pending:
     prompt, st.session_state.pending = st.session_state.pending, None
+
+asked = sum(1 for m in st.session_state.messages if m["role"] == "assistant" and m.get("mode") != "search")
+if prompt and MAX_QUESTIONS and mode != "search" and asked >= MAX_QUESTIONS:
+    st.warning(
+        f"This public demo allows {MAX_QUESTIONS} AI answers per session to share a free API quota fairly. "
+        "Search-only mode still works, or run RepoLens locally (see the GitHub README) for unlimited use."
+    )
+    prompt = None
 
 if prompt:
     history = [
