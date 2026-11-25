@@ -1,0 +1,261 @@
+"""The RepoLens investigation agent.
+
+Loop (see the README's "Design decisions"):
+
+1. **Seed** - run ``search_code`` on the question before the model's first
+   turn and put the results in the prompt. Small local models answer far more
+   reliably when they start from evidence instead of having to decide to search.
+2. **Investigate** - the model may call tools (search, read, grep, symbols,
+   references) for up to ``max_steps`` turns. Identical repeated calls are
+   short-circuited, and tool errors are returned to the model as text.
+3. **Answer** - when the model stops calling tools, or the budget runs out, it
+   must answer from the evidence gathered so far (it never ends in a crash).
+4. **Verify** - every ``path:line`` citation in the answer is checked against
+   the evidence log (:mod:`repolens.citations`).
+
+``Agent.run`` is a generator of :class:`AgentEvent` objects so the CLI and the
+Streamlit UI can show the investigation live.
+"""
+
+from __future__ import annotations
+
+import json
+import time
+from collections.abc import Iterator
+from dataclasses import dataclass, field
+from typing import Any
+
+from .citations import GroundingReport, verify_citations
+from .index import CodeIndex
+from .llm import ChatClient, ChatResponse, LLMError
+from .tools import EvidenceLog, ToolBox, overview_text, tool_call_summary
+
+SYSTEM_PROMPT = """You are RepoLens, a senior software engineer who answers questions about a code repository by investigating its source code.
+
+Repository: {label}
+{overview}
+
+How to work:
+- Initial search results for the question are provided. If they already answer it, answer immediately.
+- Otherwise use tools to gather evidence: search_code to locate code, read_file to see exact lines, find_symbol and find_references to follow definitions and call sites, grep for exact strings, list_files for structure.
+- Make focused tool calls and never repeat an identical call. Stop investigating as soon as the evidence is sufficient.
+
+Answer rules:
+- Start with a direct answer, then explain briefly (short paragraphs or bullet points).
+- Back every claim with a citation in the form `path:start-end`, for example `src/app.py:10-24`. Only cite line ranges that appeared in tool results.
+- Quote small code excerpts only when they help.
+- If the evidence is insufficient, say exactly what is missing. Never invent files, functions or behaviour."""
+
+FINAL_ANSWER_PROMPT = (
+    "You have used your investigation budget. Using only the evidence gathered above, "
+    "write your final answer now, with `path:start-end` citations. Do not call tools."
+)
+
+
+@dataclass
+class AgentConfig:
+    max_steps: int = 6
+    seed_top_k: int = 4
+    seed_snippet_chars: int = 900
+    max_calls_per_step: int = 4
+    temperature: float = 0.1
+    history_turns: int = 3
+
+
+@dataclass
+class AgentEvent:
+    kind: str  # status | tool_call | tool_result | answer | warning | error
+    step: int
+    message: str = ""
+    data: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"kind": self.kind, "step": self.step, "message": self.message, "data": self.data}
+
+
+@dataclass
+class AgentResult:
+    question: str
+    answer: str
+    grounding: GroundingReport
+    events: list[AgentEvent]
+    evidence: EvidenceLog
+    steps: int
+    tool_calls: int
+    elapsed: float
+    usage: dict[str, int]
+    stop_reason: str  # answered | budget | error
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "question": self.question,
+            "answer": self.answer,
+            "grounding": self.grounding.to_dict(),
+            "files_consulted": self.evidence.files(),
+            "steps": self.steps,
+            "tool_calls": self.tool_calls,
+            "elapsed_seconds": round(self.elapsed, 2),
+            "usage": self.usage,
+            "stop_reason": self.stop_reason,
+            "trace": [e.to_dict() for e in self.events if e.kind in {"tool_call", "tool_result", "warning"}],
+        }
+
+
+class Agent:
+    def __init__(
+        self,
+        index: CodeIndex,
+        llm: ChatClient,
+        config: AgentConfig | None = None,
+        label: str | None = None,
+        search_method: str = "auto",
+    ) -> None:
+        self.index = index
+        self.llm = llm
+        self.config = config or AgentConfig()
+        self.label = label or index.root.name
+        self.search_method = search_method
+
+    def _system_prompt(self) -> str:
+        return SYSTEM_PROMPT.format(label=self.label, overview=overview_text(self.index, readme_lines=0))
+
+    def run(self, question: str, history: list[dict[str, str]] | None = None) -> Iterator[AgentEvent]:
+        """Investigate ``question``. The last event has ``kind == 'answer'`` and carries the result."""
+        started = time.perf_counter()
+        evidence = EvidenceLog()
+        toolbox = ToolBox(self.index, evidence, self.search_method)
+        seed_box = ToolBox(self.index, evidence, self.search_method, snippet_chars=self.config.seed_snippet_chars)
+        schemas = toolbox.schemas()
+        events: list[AgentEvent] = []
+        usage: dict[str, int] = {}
+        tool_calls = 0
+        seen_calls: dict[str, str] = {}
+
+        def emit(event: AgentEvent) -> AgentEvent:
+            events.append(event)
+            return event
+
+        def add_usage(response: ChatResponse) -> None:
+            for key, value in response.usage.items():
+                usage[key] = usage.get(key, 0) + value
+
+        # 1. Seed with an automatic search.
+        seed_args = {"query": question, "top_k": self.config.seed_top_k}
+        yield emit(
+            AgentEvent(
+                "tool_call",
+                0,
+                tool_call_summary("search_code", seed_args),
+                {"tool": "search_code", "arguments": seed_args, "auto": True},
+            )
+        )
+        seed = seed_box.call("search_code", seed_args)
+        hits = seed.data if isinstance(seed.data, list) else []
+        yield emit(
+            AgentEvent(
+                "tool_result",
+                0,
+                f"{len(hits)} results",
+                {"tool": "search_code", "preview": seed.text[:1500], "hits": hits},
+            )
+        )
+
+        messages: list[dict[str, Any]] = [{"role": "system", "content": self._system_prompt()}]
+        for turn in (history or [])[-2 * self.config.history_turns :]:
+            if turn.get("role") in {"user", "assistant"} and turn.get("content"):
+                messages.append({"role": turn["role"], "content": turn["content"][:2000]})
+        messages.append(
+            {
+                "role": "user",
+                "content": f"Question: {question}\n\nInitial search results (from search_code):\n{seed.text}",
+            }
+        )
+
+        answer = ""
+        stop_reason = "answered"
+        step = 0
+        try:
+            for step in range(1, self.config.max_steps + 1):
+                yield emit(AgentEvent("status", step, "Thinking..."))
+                response = self.llm.chat(messages, tools=schemas, temperature=self.config.temperature)
+                add_usage(response)
+                if not response.tool_calls:
+                    answer = response.content.strip()
+                    if answer:
+                        break
+                    # Empty reply: nudge once, then give up on tools.
+                    messages.append(
+                        {"role": "user", "content": "Please answer the question now based on the evidence."}
+                    )
+                    continue
+                calls = response.tool_calls[: self.config.max_calls_per_step]
+                response.tool_calls = calls
+                messages.append(response.to_message())
+                for call in calls:
+                    key = f"{call.name}:{json.dumps(call.arguments, sort_keys=True)}"
+                    summary = tool_call_summary(call.name, call.arguments)
+                    yield emit(AgentEvent("tool_call", step, summary, {"tool": call.name, "arguments": call.arguments}))
+                    if key in seen_calls:
+                        text = (
+                            "You already made this exact call. Its result is above; use it or try something different."
+                        )
+                        is_error = True
+                    else:
+                        result = toolbox.call(call.name, call.arguments)
+                        text, is_error = result.text, result.is_error
+                        seen_calls[key] = text
+                        tool_calls += 1
+                    preview = text if len(text) <= 1500 else text[:1500] + "\n..."
+                    yield emit(
+                        AgentEvent(
+                            "tool_result",
+                            step,
+                            "error" if is_error else "ok",
+                            {"tool": call.name, "preview": preview, "is_error": is_error},
+                        )
+                    )
+                    messages.append({"role": "tool", "tool_call_id": call.id, "name": call.name, "content": text})
+            else:
+                stop_reason = "budget"
+            if not answer:
+                stop_reason = "budget"
+                yield emit(AgentEvent("status", step, "Writing the final answer..."))
+                messages.append({"role": "user", "content": FINAL_ANSWER_PROMPT})
+                response = self.llm.chat(messages, tools=None, temperature=self.config.temperature)
+                add_usage(response)
+                answer = response.content.strip() or "I could not produce an answer from the gathered evidence."
+        except LLMError as exc:
+            stop_reason = "error"
+            yield emit(AgentEvent("error", step, str(exc)))
+            answer = f"**The model could not be reached:** {exc}"
+
+        grounding = verify_citations(answer, self.index, evidence)
+        if grounding.count("invalid"):
+            yield emit(
+                AgentEvent(
+                    "warning",
+                    step,
+                    f"{grounding.count('invalid')} citation(s) point to files or lines that do not exist.",
+                )
+            )
+        result = AgentResult(
+            question=question,
+            answer=answer,
+            grounding=grounding,
+            events=events,
+            evidence=evidence,
+            steps=step,
+            tool_calls=tool_calls,
+            elapsed=time.perf_counter() - started,
+            usage=usage,
+            stop_reason=stop_reason,
+        )
+        yield emit(AgentEvent("answer", step, answer, {"result": result}))
+
+    def ask(self, question: str, history: list[dict[str, str]] | None = None) -> AgentResult:
+        """Run to completion and return the :class:`AgentResult`."""
+        final = None
+        for event in self.run(question, history):
+            final = event
+        assert final is not None and final.kind == "answer"
+        return final.data["result"]

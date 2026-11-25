@@ -4,6 +4,10 @@ __pycache__/
 *.pyo
 *.pyd
 .pytest_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
 .venv/
 venv/
 env/
@@ -11,7 +15,8 @@ env/
 # Environment / app state
 .env
 .env.*
-.streamlit/
+.streamlit/secrets.toml
+.repolens/
 *.log
 
 # Local test artifacts and uploaded data
