@@ -9,10 +9,12 @@
 
 <p align="center">
   <img src="docs/demo.gif" alt="RepoLens demo: pick a repository, ask a question, watch the agent investigate and get an answer with verified citations" width="860">
-  <br><sub>A real session (the wait for the free API tier is time-lapsed): pick a repository, ask a question, watch the agent investigate, get an answer whose citations are verified and linked to GitHub.</sub>
+  <br><sub>A real session (public-demo mode, gpt-oss-120b on Groq): pick a repository, ask a question, get an answer whose citations are verified against the code and linked to GitHub.</sub>
 </p>
 
-**Live demo:** coming soon on Streamlit Community Cloud ([how it is deployed](docs/DEPLOY.md)). Running it locally takes two minutes — see [Quick start](#quick-start).
+### [**Try the live demo →** repolensapp.streamlit.app](https://repolensapp.streamlit.app/)
+
+Runs on Streamlit Community Cloud with a free Groq model (8 AI answers per session; [how it is deployed](docs/DEPLOY.md)). Running it locally takes two minutes — see [Quick start](#quick-start).
 
 ```text
 $ repolens ask https://github.com/psf/requests "How does requests decide whether to drop the Authorization header on a redirect?"

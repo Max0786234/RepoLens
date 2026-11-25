@@ -19,9 +19,9 @@ classifiers = [
 dependencies = ["numpy>=1.24"]
 
 [project.optional-dependencies]
-app = ["streamlit>=1.36"]
+app = ["streamlit>=1.40"]
 st = ["sentence-transformers>=3.0"]
-dev = ["pytest>=8", "ruff>=0.6", "streamlit>=1.36"]
+dev = ["pytest>=8", "ruff>=0.6", "streamlit>=1.40"]
 
 [project.scripts]
 repolens = "repolens.cli:main"

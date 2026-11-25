@@ -1,4 +1,4 @@
 # Runtime dependencies for the Streamlit app (used by Streamlit Cloud / Hugging Face Spaces).
 # For development use:  pip install -e ".[dev]"
 numpy>=1.24
-streamlit>=1.36
+streamlit>=1.40

@@ -8,6 +8,7 @@ presentation and session state.
 
 from __future__ import annotations
 
+import html
 import os
 import time
 from pathlib import Path
@@ -26,33 +27,142 @@ from repolens.rag import retrieve, stream_answer
 from repolens.workspace import Workspace, open_index
 
 APP_DIR = Path(__file__).resolve().parent
+REPO_URL = "https://github.com/Max0786234/RepoLens"
 UPLOAD_TYPES = ["zip", "py", "js", "jsx", "ts", "tsx", "java", "kt", "go", "rs", "c", "h", "cpp", "hpp", "cs", "php",
                 "rb", "swift", "scala", "sql", "sh", "md", "txt", "json", "yaml", "yml", "toml", "html", "css", "vue"]  # fmt: skip
 EXAMPLE_QUESTIONS = [
-    "Give me an overview of this repository's architecture.",
-    "Where is the main entry point and what happens at startup?",
+    "Overview of the architecture",
+    "Where is the main entry point?",
     "How is configuration loaded?",
     "How are errors handled?",
 ]
-STATUS_ICON = {"verified": "✅", "unverified": "⚠️", "invalid": "❌"}
-STATUS_HELP = {
-    "verified": "the agent inspected these lines",
-    "unverified": "exists, but the agent never looked at these lines",
-    "invalid": "file or lines do not exist (hallucinated)",
+MODE_LABELS = {"agent": "Agent", "quick": "Quick answer", "search": "Search only"}
+MODE_CAPTIONS = {
+    "agent": "Investigates step by step with tools. Most thorough.",
+    "quick": "One search, one answer. Fastest AI mode.",
+    "search": "Shows the most relevant code. No AI model used.",
 }
+STATUS_LABEL = {"verified": "Verified", "unverified": "Not inspected", "invalid": "Not found"}
+STATUS_HELP = {
+    "verified": "The agent read these lines before answering.",
+    "unverified": "The lines exist, but the agent never looked at them.",
+    "invalid": "This file or line range does not exist in the repository.",
+}
+USER_AVATAR = ":material/person:"
+ASSISTANT_AVATAR = ":material/manage_search:"
 
-st.set_page_config(page_title="RepoLens", page_icon="🔎", layout="wide")
-st.markdown(
-    """
-    <style>
-      .rl-badge {display:inline-block;padding:2px 10px;border-radius:999px;font-size:0.8rem;font-weight:600;margin-right:6px}
-      .rl-good {background:#dcfce7;color:#166534} .rl-mid {background:#fef9c3;color:#854d0e}
-      .rl-bad {background:#fee2e2;color:#991b1b} .rl-none {background:#e5e7eb;color:#374151}
-      .rl-step {font-family:ui-monospace,monospace;font-size:0.82rem}
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
+LOGO_SVG = """<svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect x="1" y="1" width="22" height="22" rx="6" fill="#1d4ed8"/>
+<circle cx="10.5" cy="10.5" r="4.6" stroke="white" stroke-width="2"/>
+<path d="M14 14l4.2 4.2" stroke="white" stroke-width="2" stroke-linecap="round"/>
+</svg>"""
+
+CSS = """
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+:root {
+  --rl-text: #0f172a; --rl-muted: #64748b; --rl-border: #e2e8f0; --rl-soft: #f8fafc;
+  --rl-accent: #1d4ed8; --rl-accent-soft: #eff6ff;
+}
+html, body, .stApp, .stMarkdown, button, input, textarea, select { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+code, pre, .rl-mono { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace !important; }
+[data-testid="stToolbar"], [data-testid="stDecoration"], #MainMenu, footer { display: none !important; }
+.block-container { padding-top: 2.2rem; max-width: 1180px; }
+h1, h2, h3, h4 { letter-spacing: -0.015em; color: var(--rl-text); }
+
+.rl-brand { display: flex; align-items: center; gap: 10px; margin-bottom: 2px; }
+.rl-brand .name { font-weight: 700; font-size: 1.15rem; color: var(--rl-text); }
+.rl-brand .ver { font-size: .72rem; color: var(--rl-muted); border: 1px solid var(--rl-border); border-radius: 6px; padding: 1px 6px; }
+.rl-section { text-transform: uppercase; letter-spacing: .08em; font-size: .7rem; font-weight: 600; color: var(--rl-muted); margin: 18px 0 6px; }
+.rl-eyebrow { text-transform: uppercase; letter-spacing: .09em; font-size: .75rem; font-weight: 600; color: var(--rl-accent); margin-bottom: 6px; }
+.rl-hero h1 { font-size: 2.35rem; line-height: 1.15; font-weight: 700; margin: 0 0 12px; }
+.rl-lead { font-size: 1.06rem; line-height: 1.6; color: #475569; max-width: 760px; margin-bottom: 26px; }
+
+.rl-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 30px; }
+.rl-card { border: 1px solid var(--rl-border); border-radius: 12px; padding: 16px 18px; background: #fff; }
+.rl-card .step { font-size: .72rem; font-weight: 600; color: var(--rl-accent); letter-spacing: .06em; text-transform: uppercase; }
+.rl-card h4 { margin: 6px 0 6px; font-size: 1rem; font-weight: 600; }
+.rl-card p { margin: 0; color: #475569; font-size: .9rem; line-height: 1.55; }
+
+.rl-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.rl-stat { border: 1px solid var(--rl-border); border-radius: 10px; padding: 10px 14px; background: var(--rl-soft); }
+.rl-stat .v { font-size: 1.35rem; font-weight: 600; color: var(--rl-text); }
+.rl-stat .k { font-size: .75rem; color: var(--rl-muted); }
+.rl-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 4px; }
+.rl-tag { font-size: .75rem; color: #334155; background: var(--rl-soft); border: 1px solid var(--rl-border); border-radius: 6px; padding: 2px 8px; }
+
+.rl-chip { display: inline-flex; align-items: center; gap: 6px; font-size: .78rem; font-weight: 600; border-radius: 999px; padding: 2px 10px; margin-right: 8px; }
+.rl-chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.rl-ok { background: #ecfdf5; color: #047857; } .rl-warn { background: #fffbeb; color: #b45309; }
+.rl-bad { background: #fef2f2; color: #b91c1c; } .rl-none { background: #f1f5f9; color: #475569; }
+.rl-meta { font-size: .78rem; color: var(--rl-muted); }
+.rl-cite { display: flex; align-items: baseline; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--rl-border); }
+.rl-cite:last-child { border-bottom: none; }
+.rl-cite .why { font-size: .82rem; color: var(--rl-muted); }
+.rl-cite a, .rl-cite .rl-mono { font-size: .84rem; }
+.rl-step { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: .8rem; color: #334155; padding: 2px 0; }
+.rl-step b { color: var(--rl-accent); font-weight: 500; }
+.rl-note { font-size: .82rem; color: var(--rl-muted); }
+
+@media (max-width: 760px) {
+  .rl-grid, .rl-stats { grid-template-columns: 1fr; }
+  .rl-hero h1 { font-size: 1.8rem; }
+}
+</style>
+"""
+
+GUIDE = [
+    (
+        "Answer modes",
+        "**Agent** investigates like an engineer: it searches the code, opens files, finds where functions are "
+        "defined and used, and only then answers. It is the most thorough mode and takes a few seconds to a minute.  \n"
+        "**Quick answer** runs one search and writes an answer from the best matches. Fastest, good for simple "
+        "lookups.  \n**Search only** shows the most relevant pieces of code without using an AI model at all.",
+    ),
+    (
+        "Citations and verification",
+        "Answers reference code as `file:line-range`. RepoLens keeps a log of every line the agent was shown and "
+        "checks each reference against it:  \n"
+        "- **Verified** – the agent read these lines before answering.  \n"
+        "- **Not inspected** – the lines exist, but the agent never looked at them.  \n"
+        "- **Not found** – the file or line range does not exist (a hallucinated reference).  \n"
+        "Verified means the evidence was seen; it does not prove every sentence about it is right, so open the "
+        "linked lines when it matters.",
+    ),
+    (
+        "Follow-up questions",
+        "This is a conversation. Short follow-ups such as *“Are there tests for it?”* are searched together with "
+        "your previous question, and the agent remembers which files it already examined.",
+    ),
+    (
+        "Investigation steps and retrieved code",
+        "Under each answer, **Investigation steps** lists every tool call the agent made (searches, file reads, "
+        "definition lookups) and what it found. **Retrieved code** shows the code passages the answer was built "
+        "from, with links to GitHub.",
+    ),
+    (
+        "How search works",
+        "Code is split along its structure (functions, classes, methods, documentation sections) rather than "
+        "fixed-size blocks. Keyword search understands identifiers such as `parse_header` or `getUserName`; when "
+        "an embedding model is available it is combined with semantic search for paraphrased questions.",
+    ),
+    (
+        "Supported sources, languages and limits",
+        "Public GitHub repositories (any branch or commit), ZIP archives and individual files. Structure-aware "
+        "parsing for Python, JavaScript/TypeScript, Go, Rust, Java, Kotlin, C#, Swift, C/C++, Ruby and PHP; other "
+        "text files are indexed too. Dependencies, build output, binaries and secret files (such as `.env`) are "
+        "skipped. The public demo limits repository size and the number of AI answers per session.",
+    ),
+    (
+        "Privacy",
+        "The agent can only read files from the repository you load; it cannot run code or access anything else. "
+        "Code passages are sent to the configured AI model to produce answers. Do not upload code you are not "
+        "allowed to share.",
+    ),
+]
+
+st.set_page_config(page_title="RepoLens", page_icon=":material/manage_search:", layout="wide")
+st.markdown(CSS, unsafe_allow_html=True)
 
 
 # ---------------------------------------------------------------- helpers
@@ -86,16 +196,20 @@ def init_state() -> None:
         st.session_state.setdefault(key, value)
 
 
-def grounding_badge(grounding: dict[str, Any] | None) -> str:
+def section(label: str) -> None:
+    st.markdown(f'<div class="rl-section">{html.escape(label)}</div>', unsafe_allow_html=True)
+
+
+def grounding_chip(grounding: dict[str, Any] | None) -> str:
     if not grounding or not grounding.get("citations"):
-        return '<span class="rl-badge rl-none">no line citations</span>'
+        return '<span class="rl-chip rl-none">No line citations</span>'
     total = len(grounding["citations"])
     verified = grounding["verified"]
-    css = "rl-good" if verified == total else "rl-mid" if verified else "rl-bad"
-    text = f"{verified}/{total} citations verified"
+    css = "rl-ok" if verified == total else "rl-warn" if verified else "rl-bad"
+    text = f"{verified} of {total} citations verified"
     if grounding.get("invalid"):
-        text += f" · {grounding['invalid']} invalid"
-    return f'<span class="rl-badge {css}">{text}</span>'
+        text += f" · {grounding['invalid']} not found"
+    return f'<span class="rl-chip {css}">{text}</span>'
 
 
 def linkify(answer: str, source: RepoSource, index) -> str:
@@ -111,64 +225,82 @@ def linkify(answer: str, source: RepoSource, index) -> str:
 
 
 def render_citations(grounding: dict[str, Any], source: RepoSource) -> None:
+    rows = []
+    css = {"verified": "rl-ok", "unverified": "rl-warn", "invalid": "rl-bad"}
     for c in grounding.get("citations", []):
         path = c.get("resolved_path") or c["path"]
-        label = f"`{path}:{c['start_line']}-{c['end_line']}`"
+        ref = html.escape(f"{path}:{c['start_line']}-{c['end_line']}")
         url = source.web_url(path, c["start_line"], c["end_line"]) if c["status"] != "invalid" else None
-        if url:
-            label = f"[{label}]({url})"
-        st.markdown(f"{STATUS_ICON[c['status']]} {label} — {STATUS_HELP[c['status']]}")
+        ref_html = (
+            f'<a class="rl-mono" href="{url}" target="_blank">{ref}</a>'
+            if url
+            else f'<span class="rl-mono">{ref}</span>'
+        )
+        rows.append(
+            f'<div class="rl-cite"><span class="rl-chip {css[c["status"]]}">{STATUS_LABEL[c["status"]]}</span>'
+            f'{ref_html}<span class="why">{STATUS_HELP[c["status"]]}</span></div>'
+        )
+    st.markdown("".join(rows), unsafe_allow_html=True)
 
 
 def render_hits(hits: list[dict[str, Any]], source: RepoSource, limit: int = 8) -> None:
     for hit in hits[:limit]:
-        title = f"**{hit['path']}** · lines {hit['start_line']}-{hit['end_line']}"
+        title = f"**{hit['path']}** · lines {hit['start_line']}–{hit['end_line']}"
         if hit.get("symbol"):
             title += f" · `{hit['symbol']}`"
-        if hit.get("sources"):
-            title += f" · via {' + '.join(hit['sources'])}"
         url = source.web_url(hit["path"], hit["start_line"], hit["end_line"])
-        st.markdown(title + (f" · [view on GitHub]({url})" if url else ""))
-        st.code(
-            hit["text"][:3000], language=hit.get("language") if hit.get("language") not in {"text", "rst"} else None
-        )
+        st.markdown(title + (f" · [Open on GitHub]({url})" if url else ""))
+        language = hit.get("language") if hit.get("language") not in {"text", "rst"} else None
+        st.code(hit["text"][:3000], language=language)
+
+
+def step_label(event: dict[str, Any] | Any) -> str:
+    data = event["data"] if isinstance(event, dict) else event.data
+    step = event["step"] if isinstance(event, dict) else event.step
+    message = event["message"] if isinstance(event, dict) else event.message
+    prefix = "Initial search" if data.get("auto") else f"Step {step}"
+    return f'<div class="rl-step"><b>{prefix}</b> · {html.escape(message)}</div>'
 
 
 def render_trace(trace: list[dict[str, Any]]) -> None:
     for event in trace:
         if event["kind"] == "tool_call":
-            prefix = "auto" if event["data"].get("auto") else f"step {event['step']}"
-            st.markdown(f'<div class="rl-step">→ [{prefix}] {event["message"]}</div>', unsafe_allow_html=True)
+            st.markdown(step_label(event), unsafe_allow_html=True)
         elif event["kind"] == "tool_result":
-            with st.container():
-                st.code(event["data"].get("preview", "")[:1500], language=None)
+            st.code(event["data"].get("preview", "")[:1500], language=None)
         elif event["kind"] in {"warning", "error"}:
             st.warning(event["message"])
 
 
 def render_message(message: dict[str, Any], workspace: Workspace) -> None:
     source = workspace.source
-    with st.chat_message(message["role"]):
+    avatar = USER_AVATAR if message["role"] == "user" else ASSISTANT_AVATAR
+    with st.chat_message(message["role"], avatar=avatar):
         if message["role"] == "user":
             st.markdown(message["content"])
             return
         if message.get("mode") == "search":
-            st.markdown(f"**Top results** ({message.get('elapsed', 0):.2f}s, no LLM used)")
+            st.markdown(
+                f'<span class="rl-meta">Search results · {message.get("elapsed", 0):.2f}s · no AI model used</span>',
+                unsafe_allow_html=True,
+            )
             render_hits(message.get("hits", []), source)
             return
         st.markdown(linkify(message["content"], source, workspace.index))
-        meta = message.get("meta", "")
+        meta = html.escape(message.get("meta", "").strip())
         st.markdown(
-            grounding_badge(message.get("grounding")) + f'<span class="rl-step">{meta}</span>', unsafe_allow_html=True
+            grounding_chip(message.get("grounding")) + f'<span class="rl-meta">{meta}</span>', unsafe_allow_html=True
         )
-        if message.get("grounding", {}).get("citations"):
-            with st.expander("Citations"):
+        citations = message.get("grounding", {}).get("citations", [])
+        if citations:
+            with st.expander(f"Sources ({len(citations)})"):
                 render_citations(message["grounding"], source)
-        if message.get("trace"):
-            with st.expander("Investigation trace"):
+        calls = [e for e in message.get("trace", []) if e["kind"] == "tool_call"]
+        if calls:
+            with st.expander(f"Investigation steps ({len(calls)})"):
                 render_trace(message["trace"])
         if message.get("hits"):
-            with st.expander("Retrieved evidence"):
+            with st.expander(f"Retrieved code ({len(message['hits'])})"):
                 render_hits(message["hits"], source)
 
 
@@ -190,9 +322,6 @@ def conversation_markdown(workspace: Workspace) -> str:
     return "\n".join(lines)
 
 
-# ---------------------------------------------------------------- sidebar
-
-
 def load_secrets_into_env() -> None:
     """Streamlit Cloud keeps configuration in st.secrets: expose top-level values as env vars."""
     try:
@@ -204,6 +333,8 @@ def load_secrets_into_env() -> None:
             os.environ[key] = str(value)
 
 
+# ---------------------------------------------------------------- configuration
+
 load_secrets_into_env()
 init_state()
 settings = Settings.from_env()
@@ -212,15 +343,22 @@ PUBLIC_DEMO = os.environ.get("REPOLENS_PUBLIC_DEMO", "").lower() in {"1", "true"
 MAX_QUESTIONS = int(os.environ.get("REPOLENS_MAX_QUESTIONS", "8" if PUBLIC_DEMO else "0"))
 LIMITS = Limits(max_files=2_500, max_total_bytes=25_000_000, max_download_bytes=60_000_000) if PUBLIC_DEMO else Limits()
 SAMPLE_REPOS = {
-    "psf/requests": "https://github.com/psf/requests",
-    "pallets/flask": "https://github.com/pallets/flask",
-    "expressjs/express": "https://github.com/expressjs/express",
+    "psf/requests": ("https://github.com/psf/requests", "Python HTTP client"),
+    "pallets/flask": ("https://github.com/pallets/flask", "Python web framework"),
+    "expressjs/express": ("https://github.com/expressjs/express", "Node.js web framework"),
 }
 
-with st.sidebar:
-    st.markdown(f"### 🔎 RepoLens <small>v{__version__}</small>", unsafe_allow_html=True)
-    st.caption("Evidence-first AI assistant for codebases.")
 
+# ---------------------------------------------------------------- sidebar
+
+with st.sidebar:
+    st.markdown(
+        f'<div class="rl-brand">{LOGO_SVG}<span class="name">RepoLens</span><span class="ver">v{__version__}</span></div>',
+        unsafe_allow_html=True,
+    )
+    st.caption("Codebase Q&A with verified citations")
+
+    section("Model")
     provider_keys = list(PROVIDERS)
     default_provider = os.environ.get("REPOLENS_PROVIDER", "ollama")
     if PUBLIC_DEMO:
@@ -228,7 +366,7 @@ with st.sidebar:
         provider_key = default_provider if default_provider in provider_keys else "groq"
     else:
         provider_key = st.selectbox(
-            "Model provider",
+            "Provider",
             provider_keys,
             index=provider_keys.index(default_provider) if default_provider in provider_keys else 0,
             format_func=lambda k: PROVIDERS[k].name,
@@ -259,43 +397,53 @@ with st.sidebar:
     default_model = settings.llm_model if provider_key == "ollama" else preset.default_model
     if chat_models:
         index_default = chat_models.index(default_model) if default_model in chat_models else 0
-        model = st.selectbox("Model", chat_models, index=index_default, key=f"model-{provider_key}")
-        st.success(f"Connected · {len(chat_models)} chat models", icon="🟢")
+        model = st.selectbox(
+            "Model" if not PUBLIC_DEMO else f"Model ({preset.name})",
+            chat_models,
+            index=index_default,
+            key=f"model-{provider_key}",
+        )
+        st.markdown('<span class="rl-chip rl-ok">Connected</span>', unsafe_allow_html=True)
     else:
         model = st.text_input("Model", value=default_model, key=f"model-text-{provider_key}")
         if preset.needs_api_key and not api_key:
-            st.info("Enter an API key, or use **Search only** mode (no model needed).", icon="🔑")
+            st.info("Add an API key, or use Search only mode (no model needed).")
         elif probe_error:
-            st.warning(f"Model server not reachable. {probe_error[:220]}", icon="🟠")
-    if preset.notes:
-        st.caption(preset.notes)
+            st.warning(f"Model server not reachable. {probe_error[:220]}")
 
-    st.divider()
+    section("Answer mode")
     mode = st.radio(
         "Answer mode",
         ["agent", "quick", "search"],
-        format_func={
-            "agent": "🕵️ Agent - investigates with tools",
-            "quick": "⚡ Quick - one search, one answer",
-            "search": "🔍 Search only - no LLM",
-        }.get,
-        help="Agent is the most thorough. Quick is much faster on CPU-only machines. Search needs no model.",
+        format_func=MODE_LABELS.get,
+        captions=[MODE_CAPTIONS[m] for m in ("agent", "quick", "search")],
+        label_visibility="collapsed",
     )
     embed_available = provider_key != "ollama" or any(settings.embed_model in m for m in models)
     if PUBLIC_DEMO:
         semantic = settings.embed_backend != "none"
     else:
+        section("Search")
         semantic = st.toggle(
-            "Semantic search (embeddings)",
+            "Semantic search",
             value=embed_available and settings.embed_backend != "none",
-            help=f"Hybrid BM25 + vector search using `{settings.embed_model}`. Applied when a repository is indexed.",
+            help=f"Combine keyword search with embeddings (`{settings.embed_model}`) to match paraphrased "
+            "questions. Applied when a repository is loaded.",
         )
-    if semantic and provider_key == "ollama" and models and not embed_available:
-        st.caption(f"Run `ollama pull {settings.embed_model}` to enable embeddings.")
+        if semantic and provider_key == "ollama" and models and not embed_available:
+            st.caption(f"Run `ollama pull {settings.embed_model}` to enable it.")
     with st.expander("Advanced"):
         step_cap = 4 if PUBLIC_DEMO else 10
-        max_steps = st.slider("Agent tool budget (steps)", 2, step_cap, min(settings.max_agent_steps, step_cap))
-        top_k = st.slider("Chunks retrieved (quick/search)", 3, 12, 6)
+        max_steps = st.slider(
+            "Agent step budget",
+            2,
+            step_cap,
+            min(settings.max_agent_steps, step_cap),
+            help="Maximum number of investigation rounds before the agent must answer.",
+        )
+        top_k = st.slider(
+            "Code passages per search", 3, 12, 6, help="How many passages Quick answer and Search only retrieve."
+        )
 
     if provider_key not in {"ollama", "custom"}:
         settings.apply_provider(provider_key)  # token budgets for rate-limited tiers
@@ -306,28 +454,37 @@ with st.sidebar:
 
     workspace: Workspace | None = st.session_state.workspace
     if workspace:
-        st.divider()
+        section("Session")
+        if MAX_QUESTIONS:
+            used = sum(1 for m in st.session_state.messages if m["role"] == "assistant" and m.get("mode") != "search")
+            st.caption(f"AI answers used: {used} of {MAX_QUESTIONS}")
         if st.session_state.messages:
             st.download_button(
-                "⬇️ Export conversation (.md)",
+                "Export conversation",
                 conversation_markdown(workspace),
                 file_name="repolens-conversation.md",
                 use_container_width=True,
+                help="Download the questions, answers and citation results as Markdown.",
             )
-        if st.button("↩️ Load a different repository", use_container_width=True):
+        if st.button("Load a different repository", use_container_width=True):
             st.session_state.workspace = None
             st.session_state.messages = []
             st.rerun()
-    st.caption("[Source on GitHub](https://github.com/Max0786234/RepoLens)")
+
+    st.markdown(
+        f'<div class="rl-note" style="margin-top:22px"><a href="{REPO_URL}" target="_blank">Source code</a> · '
+        "MIT licensed</div>",
+        unsafe_allow_html=True,
+    )
 
 
 # ---------------------------------------------------------------- loading a repository
 
 
 def build_workspace(make_source) -> None:
-    with st.status("Preparing repository...", expanded=True) as status:
+    with st.status("Preparing repository", expanded=True) as status:
         try:
-            status.update(label="Fetching source...")
+            status.update(label="Downloading source")
             source: RepoSource = make_source()
             bar = st.progress(0.0)
             note = st.empty()
@@ -338,13 +495,11 @@ def build_workspace(make_source) -> None:
 
             workspace = open_index(source, settings, semantic=semantic, progress=progress)
         except (IngestError, FileNotFoundError, ValueError) as exc:
-            status.update(label="Could not load repository", state="error")
+            status.update(label="Could not load the repository", state="error")
             st.error(str(exc))
             return
         stats = workspace.index.stats()
-        status.update(
-            label=f"Indexed {source.label}: {stats['files']} files, {stats['chunks']} chunks", state="complete"
-        )
+        status.update(label=f"Indexed {source.label} · {stats['files']} files", state="complete")
         if workspace.semantic_error:
             st.warning(f"Semantic search unavailable, using keyword search only. ({workspace.semantic_error})")
     st.session_state.workspace = workspace
@@ -353,23 +508,39 @@ def build_workspace(make_source) -> None:
     st.rerun()
 
 
-workspace = st.session_state.workspace
-
-if workspace is None:
-    st.title("🔎 RepoLens")
-    st.markdown("#### Ask questions about any codebase and get answers backed by **verified line citations**.")
-    c1, c2, c3 = st.columns(3)
-    c1.markdown("**🧠 Agentic investigation**  \nThe agent searches, reads files and follows symbols before answering.")
-    c2.markdown("**🎯 Hybrid code search**  \nStructure-aware chunks, BM25 + embeddings fused with RRF.")
-    c3.markdown(
-        "**✅ Verified grounding**  \nEvery `file:line` citation is checked against what the agent actually read."
+def render_landing() -> None:
+    st.markdown(
+        """
+        <div class="rl-hero">
+          <div class="rl-eyebrow">Codebase Q&amp;A</div>
+          <h1>Understand any codebase,<br>with sources you can check.</h1>
+          <div class="rl-lead">RepoLens reads a repository and investigates your question the way an engineer
+          would &mdash; searching the code, opening files, following definitions and usages &mdash; then answers
+          with references to the exact lines. Every reference is checked against the code it actually read.</div>
+        </div>
+        <div class="rl-grid">
+          <div class="rl-card"><div class="step">Step 1</div><h4>Load a repository</h4>
+            <p>Paste a public GitHub link, upload a ZIP, or pick an example. The code is split into functions,
+            classes and sections and indexed for search.</p></div>
+          <div class="rl-card"><div class="step">Step 2</div><h4>Ask in plain English</h4>
+            <p>The agent searches, reads files, finds definitions and usages, and collects evidence before it
+            writes an answer. Ask follow-up questions like in a chat.</p></div>
+          <div class="rl-card"><div class="step">Step 3</div><h4>Check the sources</h4>
+            <p>Answers cite file and line ranges. Each citation is marked Verified, Not inspected or Not found,
+            and links straight to the code on GitHub.</p></div>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
-    st.write("")
-    tab_github, tab_upload, tab_sample = st.tabs(["🐙 GitHub repository", "📦 Upload ZIP / files", "✨ Try a sample"])
+    st.markdown("#### Load a repository")
+    tab_github, tab_upload, tab_examples = st.tabs(["GitHub URL", "Upload", "Examples"])
     with tab_github:
-        url = st.text_input("Public GitHub URL", placeholder="https://github.com/psf/requests")
-        st.caption("Branches and commits work too: `https://github.com/owner/repo/tree/<ref>`")
-        if st.button("Index repository", type="primary", disabled=not url):
+        url = st.text_input(
+            "Public GitHub repository",
+            placeholder="https://github.com/psf/requests",
+            help="Any public repository. Branches and commits work too: https://github.com/owner/repo/tree/<ref>",
+        )
+        if st.button("Load repository", type="primary", disabled=not url):
             if not is_github_url(url):
                 st.error("That does not look like a GitHub repository URL.")
             else:
@@ -377,58 +548,89 @@ if workspace is None:
                     lambda: download_github_repo(url, settings.cache_dir, LIMITS, token=settings.github_token or None)
                 )
     with tab_upload:
-        uploads = st.file_uploader("Project ZIP or source files", type=UPLOAD_TYPES, accept_multiple_files=True)
-        st.caption("Archives are extracted safely: path traversal, symlinks and oversized files are rejected.")
-        if st.button("Index upload", type="primary", disabled=not uploads):
+        uploads = st.file_uploader(
+            "Project ZIP or source files",
+            type=UPLOAD_TYPES,
+            accept_multiple_files=True,
+            help="Archives are extracted safely: path traversal, symlinks and oversized files are rejected.",
+        )
+        if st.button("Load upload", type="primary", disabled=not uploads):
             build_workspace(lambda: save_uploads([(f.name, f.getvalue()) for f in uploads], settings.cache_dir, LIMITS))
-    with tab_sample:
-        st.markdown("Pick a well-known open-source project, or index **RepoLens itself**.")
+    with tab_examples:
+        st.caption("Well-known open-source projects, ready to explore.")
         cols = st.columns(len(SAMPLE_REPOS) + 1)
-        for col, (name, sample_url) in zip(cols, SAMPLE_REPOS.items()):
-            if col.button(name, use_container_width=True):
-                build_workspace(
-                    lambda u=sample_url: download_github_repo(
-                        u, settings.cache_dir, LIMITS, token=settings.github_token or None
+        for col, (name, (sample_url, blurb)) in zip(cols, SAMPLE_REPOS.items()):
+            with col:
+                if st.button(name, use_container_width=True, help=blurb):
+                    build_workspace(
+                        lambda u=sample_url: download_github_repo(
+                            u, settings.cache_dir, LIMITS, token=settings.github_token or None
+                        )
                     )
-                )
-        if cols[-1].button("Index RepoLens", type="primary", use_container_width=True):
-            build_workspace(lambda: RepoSource(APP_DIR, "RepoLens (this project)", "local"))
+        with cols[-1]:
+            if st.button("RepoLens (this app)", use_container_width=True, help="The source code of this application"):
+                build_workspace(lambda: RepoSource(APP_DIR, "RepoLens", "local"))
+
+    st.markdown("#### Guide")
+    left, right = st.columns(2)
+    for i, (title, body) in enumerate(GUIDE):
+        with left if i % 2 == 0 else right, st.expander(title):
+            st.markdown(body)
+
+
+workspace = st.session_state.workspace
+
+if workspace is None:
+    render_landing()
     st.stop()
 
 
 # ---------------------------------------------------------------- chat
 
 stats = workspace.index.stats()
-header, metrics = st.columns([3, 2])
+link = (
+    f"https://github.com/{workspace.source.github['owner']}/{workspace.source.github['repo']}"
+    if workspace.source.github
+    else None
+)
+title = html.escape(workspace.source.label)
+title_html = (
+    f'<a href="{link}" target="_blank" style="color:inherit;text-decoration:none">{title}</a>' if link else title
+)
+langs = "".join(f'<span class="rl-tag">{html.escape(k)} · {v}</span>' for k, v in list(stats["languages"].items())[:6])
+search_kind = "Hybrid search (keyword + semantic)" if stats["embeddings"] else "Keyword search"
+header, metrics = st.columns([3, 2], vertical_alignment="bottom")
 with header:
-    link = (
-        f"https://github.com/{workspace.source.github['owner']}/{workspace.source.github['repo']}"
-        if workspace.source.github
-        else None
-    )
-    st.markdown(f"## {'[' + workspace.source.label + '](' + link + ')' if link else workspace.source.label}")
-    langs = " · ".join(f"{k} {v}" for k, v in list(stats["languages"].items())[:6])
-    st.caption(
-        f"{langs}  |  search: {'hybrid (BM25 + ' + settings.embed_model + ')' if stats['embeddings'] else 'BM25 keyword'}"
+    st.markdown(
+        f'<div class="rl-eyebrow">Repository</div><h2 style="margin:0">{title_html}</h2>'
+        f'<div class="rl-tags">{langs}</div><div class="rl-meta">{search_kind} · '
+        f"{MODE_LABELS[mode]} mode · {html.escape(settings.llm_model if mode != 'search' else 'no AI model')}</div>",
+        unsafe_allow_html=True,
     )
 with metrics:
-    m1, m2, m3 = st.columns(3)
-    m1.metric("Files", f"{stats['files']:,}")
-    m2.metric("Chunks", f"{stats['chunks']:,}")
-    m3.metric("Symbols", f"{stats['symbols']:,}")
+    st.markdown(
+        f'<div class="rl-stats"><div class="rl-stat"><div class="v">{stats["files"]:,}</div><div class="k">Files</div></div>'
+        f'<div class="rl-stat"><div class="v">{stats["chunks"]:,}</div><div class="k">Code passages</div></div>'
+        f'<div class="rl-stat"><div class="v">{stats["symbols"]:,}</div><div class="k">Functions &amp; classes</div></div></div>',
+        unsafe_allow_html=True,
+    )
+st.write("")
 
 for message in st.session_state.messages:
     render_message(message, workspace)
 
 if not st.session_state.messages:
-    st.markdown("**Try asking:**")
+    st.markdown('<div class="rl-section">Suggested questions</div>', unsafe_allow_html=True)
     cols = st.columns(len(EXAMPLE_QUESTIONS))
     for col, question in zip(cols, EXAMPLE_QUESTIONS):
         if col.button(question, use_container_width=True):
             st.session_state.pending = question
             st.rerun()
+    with st.expander("How to read the answers"):
+        st.markdown(GUIDE[1][1])
+        st.markdown(GUIDE[3][1])
 
-prompt = st.chat_input("Ask about this codebase, e.g. 'How does authentication work?'")
+prompt = st.chat_input("Ask about this codebase, e.g. How does authentication work?")
 if st.session_state.pending:
     prompt, st.session_state.pending = st.session_state.pending, None
 
@@ -436,7 +638,7 @@ asked = sum(1 for m in st.session_state.messages if m["role"] == "assistant" and
 if prompt and MAX_QUESTIONS and mode != "search" and asked >= MAX_QUESTIONS:
     st.warning(
         f"This public demo allows {MAX_QUESTIONS} AI answers per session to share a free API quota fairly. "
-        "Search-only mode still works, or run RepoLens locally (see the GitHub README) for unlimited use."
+        "Search only mode still works, or run RepoLens locally (see the GitHub README) for unlimited use."
     )
     prompt = None
 
@@ -471,13 +673,13 @@ if prompt:
         settings.reasoning_effort,
     )
     if hasattr(llm, "limiter"):
-        llm.limiter.on_wait = lambda seconds, reason: st.toast(f"⏳ {reason} Waiting {seconds:.0f}s")
-    with st.chat_message("assistant"):
+        llm.limiter.on_wait = lambda seconds, reason: st.toast(f"{reason} Waiting {seconds:.0f}s.")
+    with st.chat_message("assistant", avatar=ASSISTANT_AVATAR):
         if history and is_follow_up(prompt):
-            st.caption("↪ Follow-up detected: searching with the previous question as context.")
+            st.caption("Follow-up detected: searching together with your previous question.")
         if mode == "quick":
             rag = retrieve(index, prompt, top_k=top_k, history=history)
-            with st.expander(f"Retrieved {len(rag.hits)} chunks", expanded=False):
+            with st.expander(f"Retrieved code ({len(rag.hits)})", expanded=False):
                 render_hits([h.to_dict() for h in rag.hits], workspace.source)
             try:
                 st.write_stream(stream_answer(llm, index, rag, history, memory, settings.llm_max_context_tokens))
@@ -492,33 +694,35 @@ if prompt:
                 "grounding": rag.grounding.to_dict(),
                 "hits": [h.to_dict() for h in rag.hits],
                 "evidence": [r.__dict__ for r in rag.evidence.ranges][:300],
-                "meta": f"quick · {settings.llm_model} · {time.perf_counter() - started:.1f}s",
+                "meta": f"Quick answer · {settings.llm_model} · {time.perf_counter() - started:.1f}s",
             }
         else:
             agent = Agent(
                 index, llm, AgentConfig.from_settings(settings, max_steps=max_steps), label=workspace.source.label
             )
             result = None
-            with st.status("Investigating the codebase...", expanded=True) as status:
+            with st.status("Investigating", expanded=True) as status:
                 for event in agent.run(prompt, history, memory):
                     if event.kind == "tool_call":
-                        prefix = "auto" if event.data.get("auto") else f"step {event.step}"
-                        st.markdown(f'<div class="rl-step">→ [{prefix}] {event.message}</div>', unsafe_allow_html=True)
-                        status.update(label=f"{prefix}: {event.data.get('tool')}")
+                        st.markdown(step_label(event), unsafe_allow_html=True)
+                        stage = "Initial search" if event.data.get("auto") else f"Step {event.step}"
+                        status.update(label=f"Investigating · {stage}: {event.data.get('tool')}")
                     elif event.kind == "status":
-                        status.update(label=f"Step {event.step}: {event.message}")
+                        status.update(label=f"Investigating · step {event.step}: {event.message.rstrip('.')}")
                     elif event.kind in {"warning", "error"}:
                         st.warning(event.message)
                     elif event.kind == "answer":
                         result = event.data["result"]
                 status.update(
-                    label=f"Investigated in {result.steps} steps · {result.tool_calls} tool calls · {result.elapsed:.1f}s",
+                    label=f"Investigation complete · {result.steps} steps · {result.tool_calls} tool calls · "
+                    f"{result.elapsed:.1f}s",
                     state="error" if result.stop_reason == "error" else "complete",
                     expanded=False,
                 )
             hits = next(
                 (e.data.get("hits", []) for e in result.events if e.kind == "tool_result" and e.data.get("hits")), []
             )
+            tokens = result.usage.get("prompt_tokens", 0) + result.usage.get("completion_tokens", 0)
             message = {
                 "role": "assistant",
                 "mode": "agent",
@@ -529,8 +733,8 @@ if prompt:
                 ],
                 "hits": hits,
                 "evidence": [r.__dict__ for r in result.evidence.ranges][:300],
-                "meta": f" agent · {settings.llm_model} · {result.steps} steps · {result.tool_calls} tools"
-                f" · {result.usage.get('prompt_tokens', 0) + result.usage.get('completion_tokens', 0):,} tokens · {result.elapsed:.1f}s",
+                "meta": f"Agent · {settings.llm_model} · {result.steps} steps · {tokens:,} tokens · "
+                f"{result.elapsed:.1f}s",
             }
     st.session_state.messages.append(message)
     st.rerun()

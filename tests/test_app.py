@@ -21,13 +21,13 @@ def offline(monkeypatch, tmp_path):
 def test_landing_page_renders_without_a_model_server():
     at = AppTest.from_file(APP, default_timeout=60).run()
     assert not at.exception
-    assert any("RepoLens" in t.value for t in at.title)
-    assert len(at.tabs) == 3
+    assert any("Understand any codebase" in m.value for m in at.markdown)
+    assert [t.label for t in at.tabs] == ["GitHub URL", "Upload", "Examples"]
 
 
 def test_index_sample_and_search_without_llm():
     at = AppTest.from_file(APP, default_timeout=120).run()
-    next(b for b in at.button if b.label == "Index RepoLens").click().run()
+    next(b for b in at.button if b.label == "RepoLens (this app)").click().run()
     assert not at.exception
     assert at.session_state.workspace is not None
     at.sidebar.radio[0].set_value("search").run()
@@ -49,7 +49,7 @@ def _scripted(monkeypatch, responses):
 
 def _indexed_app():
     at = AppTest.from_file(APP, default_timeout=120).run()
-    next(b for b in at.button if b.label == "Index RepoLens").click().run()
+    next(b for b in at.button if b.label == "RepoLens (this app)").click().run()
     return at
 
 

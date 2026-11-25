@@ -28,7 +28,7 @@ def main() -> None:
     parser.add_argument(
         "--question", default="How does requests decide whether to drop the Authorization header on a redirect?"
     )
-    parser.add_argument("--mode", default="Agent - investigates", help="Text of the answer-mode radio option")
+    parser.add_argument("--mode", default="Agent", help="Label of the answer-mode radio option")
     parser.add_argument("--channel", default="msedge", help="msedge or chrome")
     parser.add_argument("--timeout-min", type=float, default=20)
     args = parser.parse_args()
@@ -38,24 +38,24 @@ def main() -> None:
         browser = p.chromium.launch(channel=args.channel)
         page = browser.new_page(viewport={"width": 1440, "height": 900}, device_scale_factor=2)
         page.goto(args.url)
-        page.get_by_text("Ask questions about any codebase").wait_for(timeout=60_000)
+        page.get_by_text("Understand any codebase").wait_for(timeout=60_000)
         page.wait_for_timeout(1500)
         page.screenshot(path=OUT / "landing.png")
         print("saved landing.png")
 
         page.get_by_placeholder("https://github.com/psf/requests").fill(args.repo)
         page.keyboard.press("Enter")
-        page.get_by_role("button", name="Index repository").click()
-        page.get_by_text("Try asking:").wait_for(timeout=15 * 60_000)
+        page.get_by_role("button", name="Load repository").click()
+        page.get_by_text("Suggested questions").wait_for(timeout=15 * 60_000)
 
-        page.get_by_text(args.mode, exact=False).first.click()
+        page.get_by_text(args.mode, exact=True).first.click()
         page.wait_for_timeout(500)
         box = page.get_by_placeholder("Ask about this codebase")
         box.fill(args.question)
         box.press("Enter")
         page.get_by_text("citations verified").first.wait_for(timeout=int(args.timeout_min * 60_000))
         page.wait_for_timeout(1500)
-        expander = page.get_by_text("Citations", exact=True)
+        expander = page.get_by_text("Sources (", exact=False)
         if expander.count():
             expander.first.click()
             page.wait_for_timeout(500)

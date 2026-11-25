@@ -102,6 +102,7 @@ def main() -> None:
     parser.add_argument("--question", default="Where are connection retries configured, and what is the default?")
     parser.add_argument("--channel", default="msedge")
     parser.add_argument("--scale", type=float, default=0.75)
+    parser.add_argument("--model", help="Pick this model in the sidebar first (e.g. openai/gpt-oss-20b)")
     args = parser.parse_args()
 
     with sync_playwright() as p:
@@ -109,16 +110,20 @@ def main() -> None:
         page = browser.new_page(viewport={"width": WIDTH, "height": HEIGHT})
         rec = Recorder(page, args.scale)
         page.goto(args.url)
-        page.get_by_text("Ask questions about any codebase").wait_for(timeout=60_000)
+        page.get_by_text("Understand any codebase").wait_for(timeout=60_000)
         page.add_style_tag(content=HIDE_TOOLBAR)
         page.wait_for_timeout(800)
+        if args.model:
+            page.locator('[data-testid="stSidebar"] [data-testid="stSelectbox"]').first.click()
+            page.get_by_role("option", name=args.model).click()
+            page.wait_for_timeout(800)
         rec.snap(1800)
 
-        page.get_by_role("tab", name="Try a sample").click()
+        page.get_by_role("tab", name="Examples").click()
         page.wait_for_timeout(500)
         rec.snap(900)
         page.get_by_role("button", name=args.sample).click()
-        rec.record_until(lambda: page.get_by_text("Try asking:").count() > 0, timeout_s=600, every_ms=700)
+        rec.record_until(lambda: page.get_by_text("Suggested questions").count() > 0, timeout_s=600, every_ms=700)
         page.add_style_tag(content=HIDE_TOOLBAR)
         rec.hold(1200)
 
@@ -129,12 +134,22 @@ def main() -> None:
             rec.snap(90)
         rec.hold(500)
         box.press("Enter")
-        rec.record_until(lambda: page.get_by_text("citations verified").count() > 0, timeout_s=300)
+
+        def answered() -> bool:
+            return any(
+                page.get_by_text(t).count() for t in ("citations verified", "No line citations", "could not be reached")
+            )
+
+        try:
+            rec.record_until(answered, timeout_s=300)
+        except TimeoutError:
+            page.screenshot(path=OUT.with_name("demo-debug.png"), full_page=True)
+            raise
         page.wait_for_timeout(800)
         rec.snap(2500)
 
         # Open the citation panel and scroll through the answer.
-        citations = page.get_by_text("Citations", exact=True)
+        citations = page.get_by_text("Sources (", exact=False)
         if citations.count():
             citations.last.click()
             page.wait_for_timeout(600)
