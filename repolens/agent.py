@@ -44,6 +44,7 @@ How to work:
 Answer rules:
 - Start with a direct answer, then explain briefly (short paragraphs or bullet points).
 - Back every claim with a citation in the form `path:start-end`, for example `src/app.py:10-24`. Only cite line ranges that appeared in tool results.
+- Describe only code you have actually seen. If a result says "showing lines ..." or is cut off, call read_file for the rest before describing it; never guess what unseen lines do.
 - Quote small code excerpts only when they help.
 - If the evidence is insufficient, say exactly what is missing. Never invent files, functions or behaviour."""
 
@@ -62,7 +63,7 @@ FINAL_ANSWER_PROMPT = (
 class AgentConfig:
     max_steps: int = 6
     seed_top_k: int = 4
-    seed_snippet_chars: int = 900
+    seed_snippet_chars: int = 1_300  # shows a typical 30-line function whole
     max_calls_per_step: int = 4
     max_duplicate_calls: int = 2  # stop investigating once the model repeats itself this often
     temperature: float = 0.1

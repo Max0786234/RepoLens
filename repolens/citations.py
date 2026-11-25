@@ -99,6 +99,29 @@ def extract_citations(text: str) -> list[Citation]:
     return list(found.values())
 
 
+def linkify_citations(text: str, url_for) -> str:
+    """Turn citations into Markdown links, leaving fenced code blocks untouched.
+
+    ``url_for(path, start, end)`` returns a URL or ``None``. Works whatever wraps the
+    citation - spaces, parentheses, backticks or the 【】 brackets gpt-oss likes.
+    """
+    parts = re.split(r"(```.*?```)", text, flags=re.DOTALL)
+    for i, part in enumerate(parts):
+        if part.startswith("```"):
+            continue
+        # Longest first, so "a.py:1-20" is linked before a shorter "a.py:1" could match inside it.
+        for citation in sorted(extract_citations(part), key=lambda c: -len(c.raw)):
+            url = url_for(citation.path, citation.start_line, citation.end_line)
+            if not url:
+                continue
+            link = f"[`{citation.raw}`]({url})"
+            raw = re.escape(citation.raw)
+            part = re.sub(rf"(?<!\[)`{raw}`", lambda _m, link=link: link, part)
+            part = re.sub(rf"(?<![\[`\w/.]){raw}(?![\w`-])", lambda _m, link=link: link, part)
+        parts[i] = part
+    return "".join(parts)
+
+
 def verify_citations(text: str, index: CodeIndex, evidence: EvidenceLog) -> GroundingReport:
     report = GroundingReport()
     for citation in extract_citations(text):

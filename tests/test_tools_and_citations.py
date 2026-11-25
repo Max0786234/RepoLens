@@ -135,3 +135,23 @@ def test_search_code_duplicates_ignore_top_k():
         "search_code", {"query": "retry", "top_k": 20}
     )
     assert call_key("grep", {"pattern": "a"}) != call_key("grep", {"pattern": "b"})
+
+
+def test_linkify_citations_handles_any_wrapping_and_skips_code():
+    from repolens.citations import linkify_citations
+
+    def url_for(path, start, end):
+        return None if path == "missing.py" else f"https://x/{path}#L{start}-L{end}"
+
+    text = (
+        "See (src/a.py:1-3), 【src/a.py:5-9】, `src/b.py:4` and src/a.py:1 plus missing.py:2.\n"
+        "```python\nprint('src/a.py:1-3')\n```"
+    )
+    out = linkify_citations(text, url_for)
+    assert "([`src/a.py:1-3`](https://x/src/a.py#L1-L3))" in out
+    assert "【[`src/a.py:5-9`](https://x/src/a.py#L5-L9)】" in out
+    assert "[`src/b.py:4`](https://x/src/b.py#L4-L4)" in out
+    assert "[`src/a.py:1`](https://x/src/a.py#L1-L1)" in out
+    assert "missing.py:2" in out and "x/missing.py" not in out
+    assert "print('src/a.py:1-3')" in out  # code blocks untouched
+    assert out.count("](https://x/src/a.py#L1-L3)") == 1  # no nested links

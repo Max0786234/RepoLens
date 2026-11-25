@@ -9,7 +9,6 @@ presentation and session state.
 from __future__ import annotations
 
 import os
-import re
 import time
 from pathlib import Path
 from typing import Any
@@ -18,7 +17,7 @@ import streamlit as st
 
 from repolens import __version__
 from repolens.agent import Agent, AgentConfig
-from repolens.citations import extract_citations
+from repolens.citations import linkify_citations
 from repolens.config import PROVIDERS, Settings
 from repolens.conversation import ConversationMemory, is_follow_up
 from repolens.ingest import IngestError, RepoSource, download_github_repo, is_github_url, save_uploads
@@ -103,19 +102,12 @@ def linkify(answer: str, source: RepoSource, index) -> str:
     """Turn ``path:12-30`` citations into GitHub links (outside code blocks)."""
     if not source.github:
         return answer
-    parts = re.split(r"(```.*?```)", answer, flags=re.DOTALL)
-    for i, part in enumerate(parts):
-        if part.startswith("```"):
-            continue
-        for citation in extract_citations(part):
-            resolved = index.resolve_path(citation.path)
-            if not resolved:
-                continue
-            url = source.web_url(resolved, citation.start_line, citation.end_line)
-            raw = citation.raw
-            part = part.replace(f"`{raw}`", f"[`{raw}`]({url})").replace(f" {raw}", f" [`{raw}`]({url})")
-        parts[i] = part
-    return "".join(parts)
+
+    def url_for(path: str, start: int, end: int) -> str | None:
+        resolved = index.resolve_path(path)
+        return source.web_url(resolved, start, end) if resolved else None
+
+    return linkify_citations(answer, url_for)
 
 
 def render_citations(grounding: dict[str, Any], source: RepoSource) -> None:

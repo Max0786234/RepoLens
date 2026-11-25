@@ -28,7 +28,7 @@ def main() -> None:
     parser.add_argument(
         "--question", default="How does requests decide whether to drop the Authorization header on a redirect?"
     )
-    parser.add_argument("--mode", default="Agent", help="Label prefix of the answer-mode radio option")
+    parser.add_argument("--mode", default="Agent - investigates", help="Text of the answer-mode radio option")
     parser.add_argument("--channel", default="msedge", help="msedge or chrome")
     parser.add_argument("--timeout-min", type=float, default=20)
     args = parser.parse_args()
@@ -55,12 +55,21 @@ def main() -> None:
         box.press("Enter")
         page.get_by_text("citations verified").first.wait_for(timeout=int(args.timeout_min * 60_000))
         page.wait_for_timeout(1500)
-        for label in ("Citations", "Investigation trace"):
-            expander = page.get_by_text(label, exact=True)
-            if expander.count():
-                expander.first.click()
-                page.wait_for_timeout(400)
-        page.screenshot(path=OUT / "answer.png", full_page=True)
+        expander = page.get_by_text("Citations", exact=True)
+        if expander.count():
+            expander.first.click()
+            page.wait_for_timeout(500)
+        # Streamlit scrolls inside its own container, so a full-page capture misses the answer:
+        # screenshot the assistant's chat message element instead, with fixed overlays hidden.
+        page.add_style_tag(content='[data-testid="stHeader"], [data-testid="stBottom"] {display: none !important;}')
+        page.wait_for_timeout(300)
+        answer = page.locator('[data-testid="stChatMessage"]').last
+        answer.scroll_into_view_if_needed()
+        # Streamlit only paints what is inside its scroll area: make the window taller than the answer.
+        height = int(answer.bounding_box()["height"]) + 400
+        page.set_viewport_size({"width": 1440, "height": max(900, height)})
+        page.wait_for_timeout(800)
+        answer.screenshot(path=OUT / "answer.png")
         print("saved answer.png")
         browser.close()
 

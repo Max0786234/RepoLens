@@ -30,7 +30,16 @@ Grounding: 1/1 citations verified
 
 <sub>Real output from `qwen3:4b-instruct` running locally on a CPU-only laptop via Ollama (abridged).</sub>
 
-<!-- TODO(owner): add docs/demo.gif — a 20-second capture of the Streamlit UI answering a question. -->
+<p align="center">
+  <img src="docs/answer.png" alt="RepoLens answering a question about psf/requests with verified citations" width="820">
+  <br><sub>The web app answering a question about <code>psf/requests</code> with <code>gpt-oss-120b</code> on Groq: every citation is verified against the code the agent read and links to the exact lines on GitHub.</sub>
+</p>
+
+<details><summary>Start screen</summary>
+
+![RepoLens start screen: load a GitHub repository, an upload or a sample](docs/landing.png)
+
+</details>
 
 ---
 
