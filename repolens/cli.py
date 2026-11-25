@@ -3,6 +3,7 @@
     repolens index  SOURCE                      build (or refresh) the index
     repolens search SOURCE "query"              retrieval only, no LLM needed
     repolens ask    SOURCE "question"           agent (default) or --mode quick
+    repolens chat   SOURCE                      interactive conversation about the code
     repolens eval   [--agent]                   run the benchmark in eval/
 
 SOURCE is a local folder, a .zip file or a GitHub URL.
@@ -19,6 +20,7 @@ import time
 from . import __version__
 from .agent import Agent, AgentConfig
 from .config import Settings
+from .conversation import ConversationMemory, is_follow_up
 from .ingest import IngestError
 from .llm import LLMError, client_from_settings
 from .rag import retrieve, stream_answer
@@ -175,6 +177,65 @@ def cmd_ask(args) -> int:
     return 0 if result.stop_reason != "error" else 2
 
 
+def cmd_chat(args) -> int:
+    """Interactive conversation: follow-up questions keep the topic and earlier evidence."""
+    settings = _settings(args)
+    workspace = _open(args, settings)
+    llm = client_from_settings(settings)
+    agent = Agent(workspace.index, llm, AgentConfig(max_steps=settings.max_agent_steps), label=workspace.source.label)
+    history: list[dict[str, str]] = []
+    memory = ConversationMemory()
+    stats = workspace.index.stats()
+    _print(f"Chatting about {workspace.source.label} ({stats['files']} files) with {settings.llm_model} [{args.mode}].")
+    _print("Ask anything about the code. Commands: /reset (new topic), /files (files examined), /quit\n")
+    while True:
+        try:
+            question = input("you> ").strip()
+        except (EOFError, KeyboardInterrupt):
+            _print()
+            return 0
+        if not question:
+            continue
+        if question in {"/quit", "/exit", "/q"}:
+            return 0
+        if question == "/reset":
+            history, memory = [], ConversationMemory()
+            _print("  (conversation cleared)\n")
+            continue
+        if question == "/files":
+            _print("  " + (", ".join(memory.files(30)) or "(none yet)") + "\n")
+            continue
+        if history and is_follow_up(question):
+            _print("  (follow-up: searching with the previous question as context)")
+        if args.mode == "quick":
+            rag = retrieve(workspace.index, question, top_k=args.top_k, history=history)
+            print("\nrepolens> ", end="", flush=True)
+            try:
+                for piece in stream_answer(llm, workspace.index, rag, history, memory):
+                    print(piece, end="", flush=True)
+            except LLMError as exc:
+                _print(f"\nError: {exc}\n")
+                continue
+            answer, grounding, evidence = rag.answer, rag.grounding, rag.evidence
+            _print()
+        else:
+            result = None
+            for event in agent.run(question, history, memory):
+                if event.kind == "tool_call":
+                    prefix = "auto" if event.data.get("auto") else f"step {event.step}"
+                    _print(f"  -> [{prefix}] {event.message}")
+                elif event.kind in {"warning", "error"}:
+                    _print(f"  !! {event.message}")
+                elif event.kind == "answer":
+                    result = event.data["result"]
+            answer, grounding, evidence = result.answer, result.grounding, result.evidence
+            _print(f"\nrepolens> {answer}")
+        _print_grounding(grounding)
+        _print()
+        history += [{"role": "user", "content": question}, {"role": "assistant", "content": answer}]
+        memory.add_turn(evidence.ranges)
+
+
 def cmd_eval(args) -> int:
     from .evaluation import main as eval_main
 
@@ -215,6 +276,16 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("-k", "--top-k", type=int, default=6, help="Chunks retrieved in quick mode")
     p.add_argument("--trace", action="store_true", help="Print tool results while investigating")
     p.set_defaults(func=cmd_ask)
+
+    p = sub.add_parser("chat", help="Interactive conversation about a repository")
+    common(p)
+    p.add_argument("--mode", choices=["agent", "quick"], default="agent")
+    p.add_argument("--model", help="Chat model (default from REPOLENS_LLM_MODEL)")
+    p.add_argument("--base-url", help="OpenAI-compatible base URL (default: local Ollama)")
+    p.add_argument("--api-key", help="API key for hosted providers")
+    p.add_argument("--max-steps", type=int, help="Agent tool-use budget per question")
+    p.add_argument("-k", "--top-k", type=int, default=6, help="Chunks retrieved in quick mode")
+    p.set_defaults(func=cmd_chat, json=False)
 
     p = sub.add_parser("eval", help="Run the retrieval/agent benchmark")
     from .evaluation import add_arguments

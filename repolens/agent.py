@@ -26,6 +26,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .citations import GroundingReport, verify_citations
+from .conversation import ConversationMemory, contextual_query
 from .index import CodeIndex
 from .llm import ChatClient, ChatResponse, LLMError
 from .tools import EvidenceLog, ToolBox, overview_text, tool_call_summary
@@ -119,8 +120,17 @@ class Agent:
     def _system_prompt(self) -> str:
         return SYSTEM_PROMPT.format(label=self.label, overview=overview_text(self.index, readme_lines=0))
 
-    def run(self, question: str, history: list[dict[str, str]] | None = None) -> Iterator[AgentEvent]:
-        """Investigate ``question``. The last event has ``kind == 'answer'`` and carries the result."""
+    def run(
+        self,
+        question: str,
+        history: list[dict[str, str]] | None = None,
+        memory: ConversationMemory | None = None,
+    ) -> Iterator[AgentEvent]:
+        """Investigate ``question``. The last event has ``kind == 'answer'`` and carries the result.
+
+        ``history`` holds earlier user/assistant messages; ``memory`` the evidence
+        gathered in earlier turns of the same conversation.
+        """
         started = time.perf_counter()
         evidence = EvidenceLog()
         toolbox = ToolBox(self.index, evidence, self.search_method)
@@ -139,8 +149,9 @@ class Agent:
             for key, value in response.usage.items():
                 usage[key] = usage.get(key, 0) + value
 
-        # 1. Seed with an automatic search.
-        seed_args = {"query": question, "top_k": self.config.seed_top_k}
+        # 1. Seed with an automatic search (follow-ups also use the previous question).
+        seed_query = contextual_query(question, history)
+        seed_args = {"query": seed_query, "top_k": self.config.seed_top_k}
         yield emit(
             AgentEvent(
                 "tool_call",
@@ -164,10 +175,17 @@ class Agent:
         for turn in (history or [])[-2 * self.config.history_turns :]:
             if turn.get("role") in {"user", "assistant"} and turn.get("content"):
                 messages.append({"role": turn["role"], "content": turn["content"][:2000]})
+        earlier = ""
+        if memory and memory.files():
+            earlier = (
+                "Files examined earlier in this conversation (revisit with read_file if needed): "
+                + ", ".join(memory.files())
+                + "\n\n"
+            )
         messages.append(
             {
                 "role": "user",
-                "content": f"Question: {question}\n\nInitial search results (from search_code):\n{seed.text}",
+                "content": f"Question: {question}\n\n{earlier}Initial search results (from search_code):\n{seed.text}",
             }
         )
 
@@ -229,7 +247,9 @@ class Agent:
             yield emit(AgentEvent("error", step, str(exc)))
             answer = f"**The model could not be reached:** {exc}"
 
-        grounding = verify_citations(answer, self.index, evidence)
+        # Code shown in earlier turns of the conversation also counts as seen.
+        checked = EvidenceLog(list(memory.ranges) + evidence.ranges) if memory else evidence
+        grounding = verify_citations(answer, self.index, checked)
         if grounding.count("invalid"):
             yield emit(
                 AgentEvent(
@@ -252,10 +272,15 @@ class Agent:
         )
         yield emit(AgentEvent("answer", step, answer, {"result": result}))
 
-    def ask(self, question: str, history: list[dict[str, str]] | None = None) -> AgentResult:
+    def ask(
+        self,
+        question: str,
+        history: list[dict[str, str]] | None = None,
+        memory: ConversationMemory | None = None,
+    ) -> AgentResult:
         """Run to completion and return the :class:`AgentResult`."""
         final = None
-        for event in self.run(question, history):
+        for event in self.run(question, history, memory):
             final = event
         assert final is not None and final.kind == "answer"
         return final.data["result"]

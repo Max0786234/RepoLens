@@ -44,6 +44,7 @@ Developers spend more time *finding* the right code than changing it. LLMs can h
 
 ## Features
 
+- **A conversation, not a search box** — ask follow-ups ("are there tests for it?", "what calls that?"): RepoLens keeps the topic for retrieval and remembers which code it already examined, in the web app and in `repolens chat`.
 - **Agentic investigation** — a tool-calling loop with 7 sandboxed, read-only tools, seeded retrieval, duplicate-call protection and a budget-aware final answer.
 - **Citation verification** — each citation is classified ✅ verified (the agent read those lines), ⚠️ unverified (exists but was never inspected) or ❌ invalid (file/lines do not exist).
 - **Hybrid code search** — BM25 with identifier-aware tokenisation and field boosts, plus embeddings, fused with Reciprocal Rank Fusion.
@@ -131,6 +132,7 @@ repolens index  https://github.com/pallets/flask                 # build + cache
 repolens search ./my-project "where are JWT tokens validated" --show-code
 repolens ask    ./my-project "How does the payment retry logic work?" --trace
 repolens ask    ./my-project "Summarise the data model" --mode quick
+repolens chat   ./my-project                                      # multi-turn conversation in the terminal
 repolens ask    ./my-project "..." --json                         # machine-readable result + trace
 ```
 
@@ -181,6 +183,7 @@ print(result.grounding.label)  # e.g. "2/2 citations verified"
 | Native Ollama API | Ollama's OpenAI-compatible endpoint cannot set the context window and silently truncates the start of long conversations — including the system prompt. |
 | Tolerate tool calls written as text | Some models (e.g. qwen2.5-coder) emit tool calls as JSON in the message; they are recovered only when the name matches a real tool. |
 | No LLM framework | The goal is to show — and control — the mechanics: ~3.8k lines of Python, one runtime dependency (`numpy`). |
+| Follow-up-aware retrieval | "Are there tests for it?" has no searchable terms; follow-ups are searched together with the previous question, and evidence from earlier turns is remembered. |
 | Read-only, index-scoped tools | The agent can only read files that are in the index: no secrets (`.env`, keys), no dependencies, nothing outside the repository, no execution. |
 
 ## Limitations
@@ -202,6 +205,7 @@ repolens/            core package
   ingest.py          GitHub / ZIP / upload ingestion
   llm.py             OpenAI-compatible + native Ollama clients
   rag.py             quick single-shot answers
+  conversation.py    follow-up detection + conversation memory
   evaluation.py      benchmark harness  (baseline_v1.py = frozen v1 retriever)
   cli.py             `repolens` command
 app.py               Streamlit UI

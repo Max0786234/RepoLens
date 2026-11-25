@@ -11,6 +11,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 
 from .citations import GroundingReport, verify_citations
+from .conversation import ConversationMemory, contextual_query
 from .index import CodeIndex, SearchHit
 from .tools import EvidenceLog
 
@@ -61,15 +62,18 @@ def build_messages(question: str, context: str, history: list[dict[str, str]] | 
     return messages
 
 
-def retrieve(index: CodeIndex, question: str, top_k: int = 6, method: str = "auto") -> RagAnswer:
-    hits = index.search(question, top_k=top_k, method=method)
+def retrieve(index: CodeIndex, question: str, top_k: int = 6, method: str = "auto", history=None) -> RagAnswer:
+    """Retrieve chunks for ``question``; follow-ups are searched together with the previous question."""
+    hits = index.search(contextual_query(question, history), top_k=top_k, method=method)
     evidence = EvidenceLog()
     for hit in hits:
         evidence.add(hit.chunk.path, hit.chunk.start_line, hit.chunk.end_line, "search_code")
     return RagAnswer(question, hits, evidence)
 
 
-def stream_answer(llm, index: CodeIndex, rag: RagAnswer, history=None) -> Iterator[str]:
+def stream_answer(
+    llm, index: CodeIndex, rag: RagAnswer, history=None, memory: ConversationMemory | None = None
+) -> Iterator[str]:
     """Stream answer text; fills ``rag.answer`` and ``rag.grounding`` when done."""
     messages = build_messages(rag.question, build_context(rag.hits), history)
     pieces: list[str] = []
@@ -82,13 +86,14 @@ def stream_answer(llm, index: CodeIndex, rag: RagAnswer, history=None) -> Iterat
         pieces.append(text)
         yield text
     rag.answer = "".join(pieces).strip()
-    rag.grounding = verify_citations(rag.answer, index, rag.evidence)
+    checked = EvidenceLog(list(memory.ranges) + rag.evidence.ranges) if memory else rag.evidence
+    rag.grounding = verify_citations(rag.answer, index, checked)
 
 
 def answer_question(
     llm, index: CodeIndex, question: str, top_k: int = 6, method: str = "auto", history=None
 ) -> RagAnswer:
-    rag = retrieve(index, question, top_k, method)
+    rag = retrieve(index, question, top_k, method, history)
     for _ in stream_answer(llm, index, rag, history):
         pass
     return rag

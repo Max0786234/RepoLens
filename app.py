@@ -20,6 +20,7 @@ from repolens import __version__
 from repolens.agent import Agent, AgentConfig
 from repolens.citations import extract_citations
 from repolens.config import PROVIDERS, Settings
+from repolens.conversation import ConversationMemory, is_follow_up
 from repolens.ingest import IngestError, RepoSource, download_github_repo, is_github_url, save_uploads
 from repolens.llm import LLMError, make_chat_client
 from repolens.rag import retrieve, stream_answer
@@ -394,6 +395,10 @@ if prompt:
     history = [
         {"role": m["role"], "content": m["content"]} for m in st.session_state.messages if m.get("mode") != "search"
     ]
+    # Evidence from earlier answers in this conversation (files the AI already looked at).
+    memory = ConversationMemory()
+    for m in st.session_state.messages:
+        memory.ranges.extend(ConversationMemory.from_list(m.get("evidence")).ranges)
     st.session_state.messages.append({"role": "user", "content": prompt})
     render_message(st.session_state.messages[-1], workspace)
     index = workspace.index
@@ -411,12 +416,14 @@ if prompt:
         settings.llm_base_url, settings.llm_model, settings.llm_api_key, settings.llm_timeout, settings.ollama_num_ctx
     )
     with st.chat_message("assistant"):
+        if history and is_follow_up(prompt):
+            st.caption("↪ Follow-up detected: searching with the previous question as context.")
         if mode == "quick":
-            rag = retrieve(index, prompt, top_k=top_k)
+            rag = retrieve(index, prompt, top_k=top_k, history=history)
             with st.expander(f"Retrieved {len(rag.hits)} chunks", expanded=False):
                 render_hits([h.to_dict() for h in rag.hits], workspace.source)
             try:
-                st.write_stream(stream_answer(llm, index, rag, history))
+                st.write_stream(stream_answer(llm, index, rag, history, memory))
                 error = None
             except LLMError as exc:
                 error = str(exc)
@@ -427,13 +434,14 @@ if prompt:
                 "content": rag.answer or f"**The model could not be reached:** {error}",
                 "grounding": rag.grounding.to_dict(),
                 "hits": [h.to_dict() for h in rag.hits],
+                "evidence": [r.__dict__ for r in rag.evidence.ranges][:300],
                 "meta": f"quick · {settings.llm_model} · {time.perf_counter() - started:.1f}s",
             }
         else:
             agent = Agent(index, llm, AgentConfig(max_steps=max_steps), label=workspace.source.label)
             result = None
             with st.status("Investigating the codebase...", expanded=True) as status:
-                for event in agent.run(prompt, history):
+                for event in agent.run(prompt, history, memory):
                     if event.kind == "tool_call":
                         prefix = "auto" if event.data.get("auto") else f"step {event.step}"
                         st.markdown(f'<div class="rl-step">→ [{prefix}] {event.message}</div>', unsafe_allow_html=True)
@@ -461,6 +469,7 @@ if prompt:
                     e.to_dict() for e in result.events if e.kind in {"tool_call", "tool_result", "warning", "error"}
                 ],
                 "hits": hits,
+                "evidence": [r.__dict__ for r in result.evidence.ranges][:300],
                 "meta": f" agent · {settings.llm_model} · {result.steps} steps · {result.tool_calls} tools · {result.elapsed:.1f}s",
             }
     st.session_state.messages.append(message)
