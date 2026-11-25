@@ -413,3 +413,6 @@ class ScriptedClient:
         response = self.chat(messages)
         for word in response.content.split(" "):
             yield word + " "
+
+    def list_models(self) -> list[str]:
+        return [self.model]
