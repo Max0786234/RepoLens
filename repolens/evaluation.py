@@ -278,6 +278,7 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--repo", help="Only evaluate one repository")
     parser.add_argument("--output", type=Path, default=EVAL_DIR / "results")
     parser.add_argument("--model", help="Chat model for --agent")
+    parser.add_argument("--skip-retrieval", action="store_true", help="Only run the answer evaluation")
 
 
 def main(args: argparse.Namespace) -> int:
@@ -294,12 +295,13 @@ def main(args: argparse.Namespace) -> int:
     if not semantic:
         methods = [m for m in methods if m not in {"vector", "hybrid"}]
 
-    retrieval = run_retrieval(questions, repos, methods, settings, semantic)
-    embedder = settings.embed_model if semantic else None
-    table = retrieval_markdown(retrieval, embedder)
-    (args.output / "retrieval.json").write_text(json.dumps(retrieval, indent=2), encoding="utf-8")
-    (args.output / "retrieval.md").write_text(table + "\n", encoding="utf-8")
-    print("\n" + table)
+    if not args.skip_retrieval:
+        retrieval = run_retrieval(questions, repos, methods, settings, semantic)
+        embedder = settings.embed_model if semantic else None
+        table = retrieval_markdown(retrieval, embedder)
+        (args.output / "retrieval.json").write_text(json.dumps(retrieval, indent=2), encoding="utf-8")
+        (args.output / "retrieval.md").write_text(table + "\n", encoding="utf-8")
+        print("\n" + table)
 
     if args.agent:
         print(f"\n== Answer evaluation ({args.mode}, {settings.llm_model})", flush=True)

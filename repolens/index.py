@@ -214,6 +214,7 @@ class CodeIndex:
         self.fingerprint = fingerprint_value
         self.bm25 = BM25(chunks)
         self._line_cache: dict[str, list[str]] = {}
+        self._query_vectors: dict[str, np.ndarray] = {}
 
     # ------------------------------------------------------------ building
 
@@ -375,7 +376,12 @@ class CodeIndex:
     def vector_ranking(self, query: str, limit: int = 50) -> list[tuple[int, float]]:
         if not self.has_embeddings:
             return []
-        query_vector = self.embedder.embed_query(query)
+        query_vector = self._query_vectors.get(query)
+        if query_vector is None:
+            # Query embedding can take seconds on CPU-only Ollama, and the agent often repeats queries.
+            query_vector = self.embedder.embed_query(query)
+            if len(self._query_vectors) < 256:
+                self._query_vectors[query] = query_vector
         sims = self.embeddings @ query_vector
         order = np.argsort(-sims)[:limit]
         return [(int(i), float(sims[i])) for i in order]
