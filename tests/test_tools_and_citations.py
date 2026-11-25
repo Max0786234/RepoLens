@@ -112,8 +112,26 @@ def test_citation_with_shortened_path_resolves(sample_index):
 def test_truncated_search_snippets_only_count_shown_lines_as_evidence(sample_index):
     box = ToolBox(sample_index, EvidenceLog(), snippet_chars=60)
     result = box.call("search_code", {"query": "LoginManager login logout", "top_k": 1})
-    chunk_range = next(r for r in box.evidence.ranges)
-    assert "chunk continues to line" in result.text
-    assert chunk_range.end_line - chunk_range.start_line + 1 == len(
-        [line for line in result.text.splitlines() if " | " in line]
+    shown = box.evidence.ranges[0]
+    assert "showing lines" in result.text
+    numbered = [line for line in result.text.splitlines() if " | " in line]
+    assert shown.end_line - shown.start_line + 1 == len(numbered)
+
+
+def test_query_snippet_centres_on_the_match():
+    from repolens.tools import query_snippet
+
+    text = "\n".join([f"filler_line_{i} = {i}" for i in range(80)] + ["DEFAULT_RETRIES = 0"])
+    lines, offset, truncated = query_snippet(text, "DEFAULT_RETRIES", 300)
+    assert truncated and "DEFAULT_RETRIES = 0" in lines
+    assert offset > 0  # not simply the head of the chunk
+    assert query_snippet("short", "x", 300) == (["short"], 0, False)
+
+
+def test_search_code_duplicates_ignore_top_k():
+    from repolens.agent import call_key
+
+    assert call_key("search_code", {"query": "Retry ", "top_k": 5}) == call_key(
+        "search_code", {"query": "retry", "top_k": 20}
     )
+    assert call_key("grep", {"pattern": "a"}) != call_key("grep", {"pattern": "b"})

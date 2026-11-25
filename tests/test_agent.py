@@ -118,3 +118,12 @@ def test_build_context_respects_budget(sample_index):
     hits = sample_index.search("password login total server", top_k=6)
     context = build_context(hits, max_chars=300)
     assert context.count("---") <= 1
+
+
+def test_repeated_duplicates_stop_the_investigation_early(sample_index):
+    same = call("grep", pattern="hash")
+    llm = ScriptedClient([ChatResponse("", [same])] * 3 + [ChatResponse("Answer from evidence.")])
+    result = Agent(sample_index, llm, AgentConfig(max_steps=6)).ask("q")
+    assert result.stop_reason == "stalled"
+    assert result.answer == "Answer from evidence."
+    assert result.steps == 3  # did not burn the remaining steps

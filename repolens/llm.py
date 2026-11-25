@@ -26,9 +26,22 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol
 
+from . import __version__
+
 
 class LLMError(RuntimeError):
     """Any failure talking to the model, with a message fit for end users."""
+
+
+class ToolCallParseError(LLMError):
+    """The provider could not parse the model's tool call (Groq: ``output_parse_failed``).
+
+    Recoverable: the agent tells the model and lets it try again.
+    """
+
+    def __init__(self, message: str, failed_generation: str = "") -> None:
+        super().__init__(message)
+        self.failed_generation = failed_generation
 
 
 @dataclass
@@ -251,7 +264,9 @@ class OpenAICompatibleClient:
     # ------------------------------------------------------------ transport
 
     def _headers(self) -> dict[str, str]:
-        headers = {"Content-Type": "application/json"}
+        # Some providers sit behind Cloudflare, which rejects urllib's default
+        # "Python-urllib" User-Agent with 403 / error 1010.
+        headers = {"Content-Type": "application/json", "User-Agent": f"RepoLens/{__version__}"}
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
         return headers
@@ -299,6 +314,12 @@ class OpenAICompatibleClient:
                 if exc.code >= 500 and attempt < self.max_retries:
                     self.limiter.wait(2.0 * (attempt + 1), f"Provider error {exc.code}, retrying.")
                     continue
+                if exc.code == 400 and "output_parse_failed" in detail:
+                    try:
+                        failed = json.loads(detail).get("error", {}).get("failed_generation", "")
+                    except (json.JSONDecodeError, AttributeError):
+                        failed = ""
+                    raise ToolCallParseError("The model produced an unparseable tool call.", failed) from exc
                 raise LLMError(f"Model request failed ({exc.code}): {detail}") from exc
             except (urllib.error.URLError, ConnectionError) as exc:
                 reason = getattr(exc, "reason", exc)

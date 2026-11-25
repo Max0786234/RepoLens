@@ -160,3 +160,30 @@ def test_cached_client_disabled_is_pass_through(tmp_path):
     messages = [{"role": "user", "content": "q"}]
     assert [cache.chat(messages).content, cache.chat(messages).content] == ["a", "b"]
     assert not any(tmp_path.iterdir())
+
+
+def test_unparseable_tool_call_is_retried_by_the_agent(sample_index):
+    from repolens.llm import ToolCallParseError
+
+    def broken(messages):
+        raise ToolCallParseError("unparseable", "thinking about DEFAULT_RETRIES")
+
+    client = ScriptedClient([broken, ChatResponse("Hashing is in shop/auth.py:6-8.")])
+    result = Agent(sample_index, client).ask("How are passwords hashed?")
+    assert result.stop_reason == "answered" and "shop/auth.py" in result.answer
+    assert any(e.kind == "warning" and "could not be parsed" in e.message for e in result.events)
+    assert "could not be parsed" in client.calls[-1][-1]["content"]
+
+
+def test_groq_output_parse_failed_maps_to_recoverable_error(monkeypatch):
+    from repolens.llm import ToolCallParseError
+
+    body = json.dumps({"error": {"code": "output_parse_failed", "failed_generation": "We need..."}}).encode()
+
+    def fake_urlopen(request, timeout):
+        raise urllib.error.HTTPError(request.full_url, 400, "Bad Request", {}, io.BytesIO(body))
+
+    monkeypatch.setattr(llm.urllib.request, "urlopen", fake_urlopen)
+    with pytest.raises(ToolCallParseError) as info:
+        OpenAICompatibleClient("https://api.groq.com/openai/v1", "m", "key").chat([])
+    assert info.value.failed_generation == "We need..."

@@ -28,7 +28,7 @@ from typing import Any
 from .citations import GroundingReport, verify_citations
 from .conversation import ConversationMemory, contextual_query
 from .index import CodeIndex
-from .llm import ChatClient, ChatResponse, LLMError, estimate_tokens
+from .llm import ChatClient, ChatResponse, LLMError, ToolCallParseError, estimate_tokens
 from .tools import EvidenceLog, ToolBox, overview_text, tool_call_summary
 
 SYSTEM_PROMPT = """You are RepoLens, a senior software engineer who answers questions about a code repository by investigating its source code.
@@ -47,6 +47,11 @@ Answer rules:
 - Quote small code excerpts only when they help.
 - If the evidence is insufficient, say exactly what is missing. Never invent files, functions or behaviour."""
 
+PARSE_RETRY_PROMPT = (
+    "Your previous reply could not be parsed. Either call exactly one tool with valid JSON arguments, "
+    "or write your final answer as plain text with `path:start-end` citations."
+)
+
 FINAL_ANSWER_PROMPT = (
     "You have used your investigation budget. Using only the evidence gathered above, "
     "write your final answer now, with `path:start-end` citations. Do not call tools."
@@ -59,6 +64,7 @@ class AgentConfig:
     seed_top_k: int = 4
     seed_snippet_chars: int = 900
     max_calls_per_step: int = 4
+    max_duplicate_calls: int = 2  # stop investigating once the model repeats itself this often
     temperature: float = 0.1
     history_turns: int = 3
     # Largest prompt (messages + tool schemas, estimated tokens) sent in one call.
@@ -70,6 +76,13 @@ class AgentConfig:
         values = {"max_steps": settings.max_agent_steps, "max_context_tokens": settings.llm_max_context_tokens}
         values.update(overrides)
         return cls(**values)
+
+
+def call_key(name: str, arguments: dict[str, Any]) -> str:
+    """Identity of a tool call for duplicate detection (search_code ignores top_k and case)."""
+    if name == "search_code":
+        return f"search_code:{str(arguments.get('query', '')).strip().lower()}"
+    return f"{name}:{json.dumps(arguments, sort_keys=True)}"
 
 
 TRIMMED_NOTE = "\n[... older tool output trimmed to fit the context budget; call the tool again if needed]"
@@ -128,7 +141,7 @@ class AgentResult:
     tool_calls: int
     elapsed: float
     usage: dict[str, int]
-    stop_reason: str  # answered | budget | error
+    stop_reason: str  # answered | budget | stalled | error
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -183,6 +196,7 @@ class Agent:
         usage: dict[str, int] = {}
         tool_calls = 0
         seen_calls: dict[str, str] = {}
+        duplicates = 0
 
         def emit(event: AgentEvent) -> AgentEvent:
             events.append(event)
@@ -240,7 +254,13 @@ class Agent:
                 yield emit(AgentEvent("status", step, "Thinking..."))
                 if fit_context(messages, schemas, self.config.max_context_tokens):
                     yield emit(AgentEvent("status", step, "Trimmed older tool output to fit the token budget"))
-                response = self.llm.chat(messages, tools=schemas, temperature=self.config.temperature)
+                try:
+                    response = self.llm.chat(messages, tools=schemas, temperature=self.config.temperature)
+                except ToolCallParseError:
+                    # Seen with gpt-oss on Groq: reasoning text leaks into the tool-call channel.
+                    yield emit(AgentEvent("warning", step, "The model's tool call could not be parsed; retrying."))
+                    messages.append({"role": "user", "content": PARSE_RETRY_PROMPT})
+                    continue
                 add_usage(response)
                 if not response.tool_calls:
                     answer = response.content.strip()
@@ -255,10 +275,11 @@ class Agent:
                 response.tool_calls = calls
                 messages.append(response.to_message())
                 for call in calls:
-                    key = f"{call.name}:{json.dumps(call.arguments, sort_keys=True)}"
+                    key = call_key(call.name, call.arguments)
                     summary = tool_call_summary(call.name, call.arguments)
                     yield emit(AgentEvent("tool_call", step, summary, {"tool": call.name, "arguments": call.arguments}))
                     if key in seen_calls:
+                        duplicates += 1
                         text = (
                             "You already made this exact call. Its result is above; use it or try something different."
                         )
@@ -278,10 +299,16 @@ class Agent:
                         )
                     )
                     messages.append({"role": "tool", "tool_call_id": call.id, "name": call.name, "content": text})
+                if duplicates >= self.config.max_duplicate_calls:
+                    # The model is going in circles; more steps only burn tokens.
+                    stop_reason = "stalled"
+                    yield emit(AgentEvent("status", step, "Repeated tool calls; answering from the evidence so far"))
+                    break
             else:
                 stop_reason = "budget"
             if not answer:
-                stop_reason = "budget"
+                if stop_reason != "stalled":
+                    stop_reason = "budget"
                 yield emit(AgentEvent("status", step, "Writing the final answer..."))
                 messages.append({"role": "user", "content": FINAL_ANSWER_PROMPT})
                 fit_context(messages, None, self.config.max_context_tokens)

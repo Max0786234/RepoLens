@@ -95,6 +95,7 @@ def test_openai_client_sends_tools_and_auth(monkeypatch):
     assert client.chat([{"role": "user", "content": "x"}], tools=tools).content == "hi"
     assert captured["url"] == "https://api.example.com/v1/chat/completions"
     assert captured["headers"]["Authorization"] == "Bearer sk-test"
+    assert captured["headers"]["User-agent"].startswith("RepoLens/")  # Cloudflare blocks urllib's default
     assert captured["body"]["tools"] == tools
 
 

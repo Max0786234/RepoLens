@@ -22,6 +22,7 @@ from pathlib import PurePosixPath
 from typing import Any
 
 from .index import CodeIndex
+from .text import tokenize, tokenize_query
 
 MAX_READ_LINES = 120
 MAX_SNIPPET_CHARS = 1_200
@@ -86,6 +87,35 @@ def _clip(text: str, limit: int = MAX_TOOL_CHARS) -> str:
 def _number(lines: list[str], start: int) -> str:
     width = len(str(start + len(lines)))
     return "\n".join(f"{start + i:>{width}} | {line}" for i, line in enumerate(lines))
+
+
+def query_snippet(text: str, query: str, limit: int) -> tuple[list[str], int, bool]:
+    """Pick the part of a long chunk worth showing: a window around the first query match.
+
+    Returns ``(lines, offset_of_first_line, truncated)``. Short chunks are returned whole.
+    Showing only the head of a long chunk hid exactly the line the model needed
+    (e.g. a module constant at the end of an 84-line chunk).
+    """
+    lines = text.splitlines()
+    if len(text) <= limit or not lines:
+        return lines, 0, False
+    terms = {t for t in tokenize_query(query) if len(t) > 2}
+    center = next((i for i, line in enumerate(lines) if terms & set(tokenize(line))), 0)
+    start = end = center
+    size = len(lines[center]) + 1
+    while True:
+        grew = False
+        if end + 1 < len(lines) and size + len(lines[end + 1]) + 1 <= limit:
+            end += 1
+            size += len(lines[end]) + 1
+            grew = True
+        if start > 0 and size + len(lines[start - 1]) + 1 <= limit:
+            start -= 1
+            size += len(lines[start]) + 1
+            grew = True
+        if not grew:
+            break
+    return lines[start : end + 1], start, True
 
 
 def _int(value: Any, default: int, low: int, high: int) -> int:
@@ -173,16 +203,18 @@ class ToolBox:
             for hit in hits:
                 c = hit.chunk
                 label = f" ({c.kind} {c.symbol})" if c.symbol else ""
-                lines = c.text.splitlines()
-                truncated = len(c.text) > self.snippet_chars
-                if truncated:
-                    # Keep whole lines only, and record as evidence just the lines actually shown.
-                    lines = c.text[: self.snippet_chars].splitlines()[:-1] or lines[:1]
-                shown_end = c.start_line + len(lines) - 1
-                evidence.add(c.path, c.start_line, shown_end, "search_code")
-                more = f"\n... (chunk continues to line {c.end_line}; use read_file to see more)" if truncated else ""
+                lines, first, truncated = query_snippet(c.text, str(query), self.snippet_chars)
+                first_line = c.start_line + first
+                # Record as evidence only the lines actually shown to the model.
+                evidence.add(c.path, first_line, first_line + len(lines) - 1, "search_code")
+                note = (
+                    f"\n... (showing lines {first_line}-{first_line + len(lines) - 1} of the chunk; "
+                    "use read_file for the rest)"
+                    if truncated
+                    else ""
+                )
                 blocks.append(
-                    f"[{hit.rank}] {c.path}:{c.start_line}-{c.end_line}{label}\n{_number(lines, c.start_line)}{more}"
+                    f"[{hit.rank}] {c.path}:{c.start_line}-{c.end_line}{label}\n{_number(lines, first_line)}{note}"
                 )
             return ToolResult("\n\n".join(blocks), data=[h.to_dict() for h in hits])
 
@@ -220,8 +252,8 @@ class ToolBox:
 
         @self.register(
             "grep",
-            "Regex search (case-insensitive) across indexed files. Good for exact identifiers, "
-            "error messages and config keys.",
+            "Regex search (case-insensitive) across indexed files. Best tool for exact identifiers, "
+            "constants (e.g. DEFAULT_TIMEOUT), error messages and config keys.",
             {
                 "pattern": {"type": "string", "description": "Regular expression or plain text."},
                 "path_glob": {"type": "string", "description": "Optional glob filter, e.g. '*.py' or 'src/**'."},

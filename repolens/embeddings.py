@@ -76,7 +76,7 @@ class OpenAICompatibleEmbedder:
         self._query_prefix, self._doc_prefix = _prefixes_for(model)
 
     def _post(self, inputs: list[str]) -> list[list[float]]:
-        headers = {"Content-Type": "application/json"}
+        headers = {"Content-Type": "application/json", "User-Agent": "RepoLens"}
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
         body = json.dumps({"model": self.model, "input": inputs}).encode()
