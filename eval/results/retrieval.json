@@ -1,0 +1,2639 @@
+{
+  "summary": {
+    "v1": {
+      "file_hit@1": 0.615,
+      "file_hit@5": 0.865,
+      "mrr@10": 0.724,
+      "span_hit@5": 0.712
+    },
+    "bm25": {
+      "file_hit@1": 0.788,
+      "file_hit@5": 0.942,
+      "mrr@10": 0.839,
+      "span_hit@5": 0.885
+    },
+    "vector": {
+      "file_hit@1": 0.635,
+      "file_hit@5": 0.923,
+      "mrr@10": 0.771,
+      "span_hit@5": 0.885
+    },
+    "hybrid": {
+      "file_hit@1": 0.788,
+      "file_hit@5": 1.0,
+      "mrr@10": 0.873,
+      "span_hit@5": 0.942
+    }
+  },
+  "by_style": {
+    "natural": {
+      "v1": {
+        "file_hit@1": 0.667,
+        "file_hit@5": 0.857,
+        "mrr@10": 0.763,
+        "span_hit@5": 0.714
+      },
+      "bm25": {
+        "file_hit@1": 0.738,
+        "file_hit@5": 0.929,
+        "mrr@10": 0.801,
+        "span_hit@5": 0.857
+      },
+      "vector": {
+        "file_hit@1": 0.619,
+        "file_hit@5": 0.905,
+        "mrr@10": 0.753,
+        "span_hit@5": 0.857
+      },
+      "hybrid": {
+        "file_hit@1": 0.738,
+        "file_hit@5": 1.0,
+        "mrr@10": 0.843,
+        "span_hit@5": 0.929
+      }
+    },
+    "identifier": {
+      "v1": {
+        "file_hit@1": 0.4,
+        "file_hit@5": 0.9,
+        "mrr@10": 0.562,
+        "span_hit@5": 0.7
+      },
+      "bm25": {
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "vector": {
+        "file_hit@1": 0.7,
+        "file_hit@5": 1.0,
+        "mrr@10": 0.85,
+        "span_hit@5": 1.0
+      },
+      "hybrid": {
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      }
+    }
+  },
+  "latency_ms": {
+    "v1": 70.1,
+    "bm25": 2.0,
+    "vector": 2081.7,
+    "hybrid": 2.8
+  },
+  "questions": 52,
+  "details": [
+    {
+      "id": "requests-01",
+      "style": "natural",
+      "question": "How does requests decide whether to drop the Authorization header when following a redirect?",
+      "v1": {
+        "top3": [
+          "src/requests/sessions.py:112-156",
+          "src/requests/sessions.py:149-193",
+          "src/requests/sessions.py:334-378"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "bm25": {
+        "top3": [
+          "src/requests/sessions.py:154-184",
+          "src/requests/sessions.py:334-368",
+          "tests/test_lowlevel.py:127-189"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "vector": {
+        "top3": [
+          "src/requests/sessions.py:154-184",
+          "tests/test_requests.py:1933-1938",
+          "src/requests/sessions.py:309-332"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "hybrid": {
+        "top3": [
+          "src/requests/sessions.py:154-184",
+          "tests/test_requests.py:1933-1938",
+          "src/requests/sessions.py:309-332"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      }
+    },
+    {
+      "id": "requests-02",
+      "style": "natural",
+      "question": "Where is the loop that follows redirect responses and builds each next request?",
+      "v1": {
+        "top3": [
+          "tests/test_requests.py:2258-2302",
+          "src/requests/sessions.py:297-341",
+          "src/requests/models.py:889-933"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 0.5,
+        "span_hit@5": 1.0
+      },
+      "bm25": {
+        "top3": [
+          "src/requests/sessions.py:286-307",
+          "tests/test_requests.py:1988-2005",
+          "src/requests/models.py:891-894"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "vector": {
+        "top3": [
+          "src/requests/sessions.py:186-245",
+          "tests/test_requests.py:2608-2638",
+          "tests/test_requests.py:2649-2667"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "hybrid": {
+        "top3": [
+          "src/requests/sessions.py:286-307",
+          "tests/test_requests.py:2649-2667",
+          "tests/test_requests.py:2608-2638"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      }
+    },
+    {
+      "id": "requests-03",
+      "style": "natural",
+      "question": "How is the no_proxy environment variable used to skip proxies for some hosts?",
+      "v1": {
+        "top3": [
+          "src/requests/utils.py:889-933",
+          "src/requests/utils.py:852-896",
+          "src/requests/sessions.py:815-859"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "bm25": {
+        "top3": [
+          "src/requests/utils.py:810-870",
+          "src/requests/sessions.py:831-868",
+          "src/requests/utils.py:911-939"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "vector": {
+        "top3": [
+          "tests/test_utils.py:220-282",
+          "src/requests/utils.py:810-870",
+          "tests/test_utils.py:825-844"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 0.5,
+        "span_hit@5": 1.0
+      },
+      "hybrid": {
+        "top3": [
+          "src/requests/utils.py:810-870",
+          "tests/test_utils.py:220-282",
+          "src/requests/utils.py:873-882"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      }
+    },
+    {
+      "id": "requests-04",
+      "style": "natural",
+      "question": "How does it guess the character encoding of a response body when the server does not declare one?",
+      "v1": {
+        "top3": [
+          "src/requests/models.py:1074-1118",
+          "src/requests/models.py:778-822",
+          "src/requests/models.py:889-933"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "bm25": {
+        "top3": [
+          "src/requests/models.py:1091-1124",
+          "src/requests/utils.py:1008-1037",
+          "src/requests/models.py:1053-1089"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "vector": {
+        "top3": [
+          "src/requests/models.py:896-904",
+          "docs/user/advanced.rst:701-760",
+          "src/requests/utils.py:569-591"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "hybrid": {
+        "top3": [
+          "src/requests/models.py:896-904",
+          "src/requests/utils.py:1008-1037",
+          "src/requests/models.py:1053-1089"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      }
+    },
+    {
+      "id": "requests-05",
+      "style": "natural",
+      "question": "How is the HTTP Basic auth header value built from a username and password?",
+      "v1": {
+        "top3": [
+          "src/requests/auth.py:75-119",
+          "src/requests/auth.py:38-82",
+          "src/requests/auth.py:112-156"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "bm25": {
+        "top3": [
+          "src/requests/auth.py:85-113",
+          "src/requests/auth.py:116-121",
+          "src/requests/auth.py:34-75"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "vector": {
+        "top3": [
+          "src/requests/auth.py:34-75",
+          "src/requests/auth.py:85-113",
+          "src/requests/auth.py:207-266"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "hybrid": {
+        "top3": [
+          "src/requests/auth.py:85-113",
+          "src/requests/auth.py:34-75",
+          "src/requests/auth.py:141-145"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      }
+    },
+    {
+      "id": "requests-06",
+      "style": "natural",
+      "question": "Where is the response to a Digest authentication challenge computed (nonce, qop, hashing)?",
+      "v1": {
+        "top3": [
+          "tests/test_lowlevel.py:186-230",
+          "src/requests/auth.py:223-267",
+          "tests/test_lowlevel.py:112-156"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 0.5,
+        "span_hit@5": 1.0
+      },
+      "bm25": {
+        "top3": [
+          "src/requests/auth.py:207-266",
+          "src/requests/auth.py:157-216",
+          "tests/test_lowlevel.py:192-235"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "vector": {
+        "top3": [
+          "src/requests/auth.py:207-266",
+          "src/requests/auth.py:157-216",
+          "src/requests/auth.py:124-135"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "hybrid": {
+        "top3": [
+          "src/requests/auth.py:207-266",
+          "src/requests/auth.py:157-216",
+          "src/requests/auth.py:124-135"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      }
+    },
+    {
+      "id": "requests-07",
+      "style": "identifier",
+      "question": "How does iter_content stream the body in chunks?",
+      "v1": {
+        "top3": [
+          "tests/test_requests.py:1481-1525",
+          "src/requests/models.py:963-1007",
+          "tests/test_requests.py:1518-1562"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 0.5,
+        "span_hit@5": 1.0
+      },
+      "bm25": {
+        "top3": [
+          "src/requests/models.py:914-977",
+          "src/requests/models.py:906-909",
+          "src/requests/models.py:910-913"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "vector": {
+        "top3": [
+          "src/requests/models.py:914-977",
+          "src/requests/models.py:906-909",
+          "src/requests/models.py:910-913"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "hybrid": {
+        "top3": [
+          "src/requests/models.py:914-977",
+          "src/requests/models.py:906-909",
+          "src/requests/models.py:910-913"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      }
+    },
+    {
+      "id": "requests-08",
+      "style": "identifier",
+      "question": "What does raise_for_status do for 4xx and 5xx responses?",
+      "v1": {
+        "top3": [
+          "src/requests/auth.py:260-304",
+          "tests/test_lowlevel.py:223-267",
+          ".github/CONTRIBUTING.md:38-66"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 0.0,
+        "mrr@10": 0.0,
+        "span_hit@5": 0.0
+      },
+      "bm25": {
+        "top3": [
+          "src/requests/models.py:1144-1171",
+          "docs/user/quickstart.rst:351-410",
+          "tests/test_lowlevel.py:238-272"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "vector": {
+        "top3": [
+          "tests/test_requests.py:934-940",
+          "src/requests/models.py:1144-1171",
+          "src/requests/models.py:847-855"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 0.5,
+        "span_hit@5": 1.0
+      },
+      "hybrid": {
+        "top3": [
+          "src/requests/models.py:1144-1171",
+          "src/requests/models.py:861-874",
+          "tests/test_requests.py:934-940"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      }
+    },
+    {
+      "id": "requests-09",
+      "style": "natural",
+      "question": "Where are connection retries configured for the transport adapter?",
+      "v1": {
+        "top3": [
+          "src/requests/adapters.py:149-193",
+          "src/requests/sessions.py:852-896",
+          "HISTORY.md:926-970"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 0.0
+      },
+      "bm25": {
+        "top3": [
+          "src/requests/adapters.py:158-200",
+          "src/requests/adapters.py:201-221",
+          "docs/user/advanced.rst:1001-1060"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "vector": {
+        "top3": [
+          "src/requests/adapters.py:1-84",
+          "src/requests/adapters.py:201-221",
+          "src/requests/adapters.py:158-200"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "hybrid": {
+        "top3": [
+          "src/requests/adapters.py:158-200",
+          "src/requests/adapters.py:201-221",
+          "src/requests/adapters.py:1-84"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      }
+    },
+    {
+      "id": "requests-10",
+      "style": "natural",
+      "question": "How are TLS certificates verified and custom CA bundles or client certs applied?",
+      "v1": {
+        "top3": [
+          "tests/certs/mtls/README.md:1-4",
+          "src/requests/sessions.py:593-637",
+          "tests/certs/expired/README.md:1-11"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 0.0,
+        "mrr@10": 0.1111111111111111,
+        "span_hit@5": 0.0
+      },
+      "bm25": {
+        "top3": [
+          "src/requests/adapters.py:307-363",
+          "src/requests/adapters.py:403-453",
+          "src/requests/sessions.py:607-653"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "vector": {
+        "top3": [
+          "tests/test_requests.py:993-1024",
+          "docs/user/advanced.rst:251-310",
+          "src/requests/adapters.py:307-363"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 0.3333333333333333,
+        "span_hit@5": 1.0
+      },
+      "hybrid": {
+        "top3": [
+          "src/requests/adapters.py:307-363",
+          "src/requests/certs.py:1-18",
+          "tests/test_requests.py:2959-2990"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      }
+    },
+    {
+      "id": "requests-11",
+      "style": "natural",
+      "question": "Which data structure lets header names be looked up regardless of letter case?",
+      "v1": {
+        "top3": [
+          "src/requests/structures.py:1-45",
+          "src/requests/sessions.py:593-637",
+          "src/requests/adapters.py:112-156"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "bm25": {
+        "top3": [
+          "src/requests/structures.py:20-93",
+          "src/requests/utils.py:951-962",
+          "src/requests/api.py:24-71"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "vector": {
+        "top3": [
+          "src/requests/structures.py:20-93",
+          "tests/test_structures.py:1-5",
+          "tests/test_structures.py:6-51"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "hybrid": {
+        "top3": [
+          "src/requests/structures.py:20-93",
+          "tests/test_structures.py:1-5",
+          "tests/test_structures.py:6-51"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      }
+    },
+    {
+      "id": "requests-12",
+      "style": "natural",
+      "question": "How are session-level cookies combined with the cookies passed for a single request?",
+      "v1": {
+        "top3": [
+          "src/requests/cookies.py:408-452",
+          "src/requests/cookies.py:186-230",
+          "src/requests/cookies.py:149-193"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 0.0
+      },
+      "bm25": {
+        "top3": [
+          "docs/user/advanced.rst:1-60",
+          "tests/test_requests.py:775-781",
+          "docs/user/quickstart.rst:401-460"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 0.2,
+        "span_hit@5": 1.0
+      },
+      "vector": {
+        "top3": [
+          "docs/user/advanced.rst:1-60",
+          "src/requests/sessions.py:76-105",
+          "tests/test_requests.py:417-423"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 0.5,
+        "span_hit@5": 0.0
+      },
+      "hybrid": {
+        "top3": [
+          "docs/user/advanced.rst:1-60",
+          "tests/test_requests.py:417-423",
+          "src/requests/cookies.py:191-210"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 0.3333333333333333,
+        "span_hit@5": 0.0
+      }
+    },
+    {
+      "id": "requests-13",
+      "style": "natural",
+      "question": "How are files encoded into a multipart/form-data body for upload?",
+      "v1": {
+        "top3": [
+          "src/requests/models.py:260-304",
+          "tests/test_utils.py:593-637",
+          "tests/test_requests.py:1888-1932"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "bm25": {
+        "top3": [
+          "src/requests/models.py:284-322",
+          "docs/user/advanced.rst:351-410",
+          "src/requests/models.py:182-251"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "vector": {
+        "top3": [
+          "src/requests/models.py:182-251",
+          "docs/user/advanced.rst:351-410",
+          "tests/test_requests.py:1886-1892"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "hybrid": {
+        "top3": [
+          "src/requests/models.py:182-251",
+          "docs/user/advanced.rst:351-410",
+          "docs/user/quickstart.rst:301-360"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      }
+    },
+    {
+      "id": "requests-14",
+      "style": "natural",
+      "question": "Where is the default User-Agent string and the default header set defined?",
+      "v1": {
+        "top3": [
+          "src/requests/utils.py:926-970",
+          "tests/test_requests.py:2443-2487",
+          "src/requests/adapters.py:408-452"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "bm25": {
+        "top3": [
+          "src/requests/utils.py:951-962",
+          "src/requests/utils.py:942-948",
+          "src/requests/cookies.py:31-111"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "vector": {
+        "top3": [
+          "src/requests/utils.py:942-948",
+          "src/requests/utils.py:951-962",
+          "src/requests/utils.py:51-110"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "hybrid": {
+        "top3": [
+          "src/requests/utils.py:951-962",
+          "src/requests/utils.py:942-948",
+          "src/requests/utils.py:51-110"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      }
+    },
+    {
+      "id": "requests-15",
+      "style": "natural",
+      "question": "How is a URL validated and its international domain name encoded before sending?",
+      "v1": {
+        "top3": [
+          "src/requests/cookies.py:408-452",
+          "src/requests/cookies.py:149-193",
+          "src/requests/cookies.py:334-378"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 0.0,
+        "mrr@10": 0.0,
+        "span_hit@5": 0.0
+      },
+      "bm25": {
+        "top3": [
+          "src/requests/cookies.py:164-182",
+          "src/requests/cookies.py:494-528",
+          "src/requests/models.py:483-563"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 0.3333333333333333,
+        "span_hit@5": 1.0
+      },
+      "vector": {
+        "top3": [
+          "tests/test_requests.py:2761-2802",
+          "src/requests/models.py:473-481",
+          "src/requests/models.py:483-563"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 0.5,
+        "span_hit@5": 1.0
+      },
+      "hybrid": {
+        "top3": [
+          "src/requests/models.py:483-563",
+          "src/requests/models.py:108-110",
+          "src/requests/models.py:111-130"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      }
+    },
+    {
+      "id": "requests-16",
+      "style": "natural",
+      "question": "Which exception is raised when the connection attempt times out, and where is it raised?",
+      "v1": {
+        "top3": [
+          "src/requests/sessions.py:482-526",
+          "HISTORY.md:1037-1081",
+          "HISTORY.md:297-341"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 0.0,
+        "mrr@10": 0.16666666666666666,
+        "span_hit@5": 0.0
+      },
+      "bm25": {
+        "top3": [
+          "docs/user/quickstart.rst:551-573",
+          "docs/user/quickstart.rst:501-560",
+          "tests/test_requests.py:934-940"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 0.25,
+        "span_hit@5": 1.0
+      },
+      "vector": {
+        "top3": [
+          "src/requests/exceptions.py:91-95",
+          "src/requests/exceptions.py:82-88",
+          "tests/test_requests.py:582-595"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "hybrid": {
+        "top3": [
+          "src/requests/exceptions.py:91-95",
+          "docs/user/quickstart.rst:551-573",
+          "src/requests/exceptions.py:82-88"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      }
+    },
+    {
+      "id": "requests-17",
+      "style": "natural",
+      "question": "How are credentials looked up in the user's .netrc file?",
+      "v1": {
+        "top3": [
+          "tests/test_requests.py:704-748",
+          "HISTORY.md:1481-1525",
+          "HISTORY.md:1333-1377"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 0.0,
+        "mrr@10": 0.1111111111111111,
+        "span_hit@5": 0.0
+      },
+      "bm25": {
+        "top3": [
+          "docs/user/authentication.rst:1-60",
+          "tests/test_utils.py:156-181",
+          "tests/test_requests.py:718-746"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 0.0,
+        "mrr@10": 0.0,
+        "span_hit@5": 0.0
+      },
+      "vector": {
+        "top3": [
+          "src/requests/utils.py:231-280",
+          "tests/test_utils.py:156-181",
+          "tests/test_requests.py:718-746"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "hybrid": {
+        "top3": [
+          "tests/test_utils.py:156-181",
+          "docs/user/authentication.rst:1-60",
+          "tests/test_requests.py:718-746"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 0.2,
+        "span_hit@5": 1.0
+      }
+    },
+    {
+      "id": "requests-18",
+      "style": "identifier",
+      "question": "What does rebuild_proxies do during a redirect?",
+      "v1": {
+        "top3": [
+          ".github/CONTRIBUTING.md:38-66",
+          ".github/CONTRIBUTING.md:1-45",
+          "src/requests/sessions.py:371-415"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 0.3333333333333333,
+        "span_hit@5": 0.0
+      },
+      "bm25": {
+        "top3": [
+          "src/requests/sessions.py:334-368",
+          "src/requests/sessions.py:236-295",
+          "tests/test_requests.py:662-681"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "vector": {
+        "top3": [
+          "src/requests/sessions.py:334-368",
+          "src/requests/sessions.py:370-392",
+          "src/requests/sessions.py:236-295"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "hybrid": {
+        "top3": [
+          "src/requests/sessions.py:334-368",
+          "src/requests/sessions.py:236-295",
+          "src/requests/sessions.py:370-392"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      }
+    },
+    {
+      "id": "flask-01",
+      "style": "natural",
+      "question": "How does the command line tool discover the application object inside a module?",
+      "v1": {
+        "top3": [
+          "src/flask/sansio/app.py:38-82",
+          "src/flask/app.py:112-156",
+          "src/flask/app.py:75-119"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 0.0,
+        "mrr@10": 0.0,
+        "span_hit@5": 0.0
+      },
+      "bm25": {
+        "top3": [
+          "src/flask/blueprints.py:19-53",
+          "examples/celery/pyproject.toml:1-22",
+          "pyproject.toml:101-160"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 0.0,
+        "mrr@10": 0.0,
+        "span_hit@5": 0.0
+      },
+      "vector": {
+        "top3": [
+          "tests/test_cli.py:47-131",
+          "src/flask/cli.py:229-232",
+          "src/flask/cli.py:235-238"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 0.5,
+        "span_hit@5": 0.0
+      },
+      "hybrid": {
+        "top3": [
+          "src/flask/cli.py:41-91",
+          "docs/cli.rst:1-60",
+          "src/flask/sansio/app.py:60-119"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      }
+    },
+    {
+      "id": "flask-02",
+      "style": "natural",
+      "question": "How is the session cookie signed and serialized?",
+      "v1": {
+        "top3": [
+          "src/flask/sessions.py:38-82",
+          "src/flask/sessions.py:260-304",
+          "src/flask/sessions.py:223-267"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "bm25": {
+        "top3": [
+          "src/flask/sessions.py:303-321",
+          "src/flask/sessions.py:284-302",
+          "src/flask/sessions.py:323-335"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "vector": {
+        "top3": [
+          "src/flask/sessions.py:284-302",
+          "src/flask/sessions.py:303-321",
+          "src/flask/sessions.py:323-335"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "hybrid": {
+        "top3": [
+          "src/flask/sessions.py:303-321",
+          "src/flask/sessions.py:284-302",
+          "src/flask/sessions.py:323-335"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      }
+    },
+    {
+      "id": "flask-03",
+      "style": "identifier",
+      "question": "How does url_for build a URL for an endpoint, including _external and _scheme?",
+      "v1": {
+        "top3": [
+          "src/flask/app.py:1185-1229",
+          "src/flask/app.py:1222-1266",
+          "src/flask/helpers.py:223-267"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "bm25": {
+        "top3": [
+          "src/flask/app.py:1245-1265",
+          "src/flask/app.py:1195-1254",
+          "src/flask/helpers.py:200-251"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "vector": {
+        "top3": [
+          "src/flask/helpers.py:200-251",
+          "tests/test_helpers.py:94-161",
+          "src/flask/app.py:1145-1204"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "hybrid": {
+        "top3": [
+          "src/flask/helpers.py:200-251",
+          "src/flask/app.py:1245-1265",
+          "src/flask/app.py:1195-1254"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      }
+    },
+    {
+      "id": "flask-04",
+      "style": "natural",
+      "question": "How can configuration be loaded from environment variables that share a common prefix?",
+      "v1": {
+        "top3": [
+          "src/flask/config.py:112-156",
+          "src/flask/config.py:38-82",
+          "src/flask/cli.py:519-563"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "bm25": {
+        "top3": [
+          "src/flask/config.py:102-124",
+          "docs/config.rst:501-560",
+          "src/flask/config.py:50-93"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "vector": {
+        "top3": [
+          "src/flask/config.py:126-185",
+          "tests/test_config.py:69-76",
+          "docs/config.rst:601-660"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "hybrid": {
+        "top3": [
+          "src/flask/config.py:126-185",
+          "docs/config.rst:501-560",
+          "docs/config.rst:601-660"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      }
+    },
+    {
+      "id": "flask-05",
+      "style": "natural",
+      "question": "How is configuration loaded from a Python file on disk?",
+      "v1": {
+        "top3": [
+          "src/flask/config.py:260-304",
+          "src/flask/config.py:223-267",
+          "src/flask/config.py:38-82"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 0.0
+      },
+      "bm25": {
+        "top3": [
+          "docs/config.rst:501-560",
+          "src/flask/config.py:102-124",
+          "src/flask/config.py:50-93"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 0.5,
+        "span_hit@5": 0.0
+      },
+      "vector": {
+        "top3": [
+          "src/flask/config.py:187-216",
+          "src/flask/config.py:256-302",
+          "docs/config.rst:451-510"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "hybrid": {
+        "top3": [
+          "src/flask/config.py:256-302",
+          "src/flask/config.py:187-216",
+          "src/flask/config.py:102-124"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      }
+    },
+    {
+      "id": "flask-06",
+      "style": "natural",
+      "question": "Where is the application context pushed and popped, and what happens on teardown?",
+      "v1": {
+        "top3": [
+          "src/flask/ctx.py:260-304",
+          "src/flask/ctx.py:445-489",
+          "src/flask/app.py:1518-1562"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "bm25": {
+        "top3": [
+          "src/flask/ctx.py:260-299",
+          "src/flask/ctx.py:446-504",
+          "docs/appcontext.rst:151-187"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "vector": {
+        "top3": [
+          "tests/test_reqctx.py:15-26",
+          "tests/test_appctx.py:195-211",
+          "tests/test_appctx.py:170-192"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 0.0,
+        "mrr@10": 0.14285714285714285,
+        "span_hit@5": 0.0
+      },
+      "hybrid": {
+        "top3": [
+          "docs/appcontext.rst:151-187",
+          "tests/test_reqctx.py:15-26",
+          "src/flask/ctx.py:446-504"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 0.3333333333333333,
+        "span_hit@5": 1.0
+      }
+    },
+    {
+      "id": "flask-07",
+      "style": "natural",
+      "question": "When a view raises an exception, how is the matching registered error handler chosen?",
+      "v1": {
+        "top3": [
+          "src/flask/app.py:926-970",
+          "src/flask/sansio/app.py:334-378",
+          "src/flask/app.py:889-933"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "bm25": {
+        "top3": [
+          "tests/test_user_error_handler.py:10-58",
+          "docs/errorhandling.rst:101-160",
+          "docs/errorhandling.rst:151-210"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 0.2,
+        "span_hit@5": 0.0
+      },
+      "vector": {
+        "top3": [
+          "docs/errorhandling.rst:351-410",
+          "src/flask/app.py:880-914",
+          "src/flask/sansio/app.py:869-892"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 0.5,
+        "span_hit@5": 1.0
+      },
+      "hybrid": {
+        "top3": [
+          "docs/errorhandling.rst:101-160",
+          "src/flask/sansio/scaffold.py:605-647",
+          "src/flask/app.py:916-971"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 0.3333333333333333,
+        "span_hit@5": 0.0
+      }
+    },
+    {
+      "id": "flask-08",
+      "style": "identifier",
+      "question": "How does send_from_directory prevent serving files outside the directory?",
+      "v1": {
+        "top3": [
+          "src/flask/helpers.py:519-563",
+          "src/flask/helpers.py:556-600",
+          "src/flask/cli.py:519-563"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "bm25": {
+        "top3": [
+          "src/flask/helpers.py:543-584",
+          "src/flask/blueprints.py:1-17",
+          "src/flask/app.py:390-410"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "vector": {
+        "top3": [
+          "src/flask/helpers.py:543-584",
+          "tests/test_helpers.py:33-91",
+          "docs/patterns/fileuploads.rst:101-160"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "hybrid": {
+        "top3": [
+          "src/flask/helpers.py:543-584",
+          "src/flask/app.py:390-410",
+          "src/flask/blueprints.py:82-102"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      }
+    },
+    {
+      "id": "flask-09",
+      "style": "natural",
+      "question": "What happens when a blueprint is registered on an application?",
+      "v1": {
+        "top3": [
+          "src/flask/sansio/scaffold.py:482-526",
+          "src/flask/sansio/blueprints.py:223-267",
+          "src/flask/sansio/blueprints.py:112-156"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 0.5,
+        "span_hit@5": 1.0
+      },
+      "bm25": {
+        "top3": [
+          "src/flask/sansio/app.py:570-596",
+          "src/flask/sansio/blueprints.py:273-332",
+          "src/flask/sansio/blueprints.py:223-230"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 0.5,
+        "span_hit@5": 1.0
+      },
+      "vector": {
+        "top3": [
+          "src/flask/sansio/blueprints.py:273-332",
+          "tests/test_blueprints.py:1080-1083",
+          "tests/test_blueprints.py:911-988"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "hybrid": {
+        "top3": [
+          "src/flask/sansio/blueprints.py:273-332",
+          "src/flask/sansio/app.py:570-596",
+          "tests/test_blueprints.py:7-42"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      }
+    },
+    {
+      "id": "flask-10",
+      "style": "natural",
+      "question": "How does the route decorator connect a URL rule to a view function?",
+      "v1": {
+        "top3": [
+          "src/flask/sansio/scaffold.py:371-415",
+          "src/flask/sansio/scaffold.py:334-378",
+          "src/flask/sansio/scaffold.py:408-452"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "bm25": {
+        "top3": [
+          "src/flask/sansio/scaffold.py:343-373",
+          "src/flask/sansio/scaffold.py:375-441",
+          "src/flask/views.py:16-77"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "vector": {
+        "top3": [
+          "tests/test_basic.py:218-235",
+          "tests/test_basic.py:197-215",
+          "docs/api.rst:601-660"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 0.0,
+        "mrr@10": 0.16666666666666666,
+        "span_hit@5": 0.0
+      },
+      "hybrid": {
+        "top3": [
+          "src/flask/sansio/scaffold.py:343-373",
+          "src/flask/sansio/scaffold.py:375-441",
+          "docs/api.rst:601-660"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      }
+    },
+    {
+      "id": "flask-11",
+      "style": "natural",
+      "question": "How is a view's return value such as a dict, tuple or string converted into a response object?",
+      "v1": {
+        "top3": [
+          "src/flask/app.py:1259-1303",
+          "src/flask/app.py:1296-1340",
+          "src/flask/helpers.py:149-193"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "bm25": {
+        "top3": [
+          "src/flask/app.py:1267-1326",
+          "src/flask/app.py:1317-1376",
+          "docs/quickstart.rst:601-660"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "vector": {
+        "top3": [
+          "src/flask/app.py:1317-1376",
+          "src/flask/app.py:1267-1326",
+          "src/flask/views.py:78-83"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "hybrid": {
+        "top3": [
+          "src/flask/app.py:1267-1326",
+          "src/flask/app.py:1317-1376",
+          "src/flask/app.py:1367-1407"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      }
+    },
+    {
+      "id": "flask-12",
+      "style": "natural",
+      "question": "How does the default JSON provider serialize dates, UUIDs and dataclasses?",
+      "v1": {
+        "top3": [
+          "src/flask/json/provider.py:112-156",
+          "src/flask/json/provider.py:75-119",
+          "src/flask/json/provider.py:1-45"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "bm25": {
+        "top3": [
+          "src/flask/json/provider.py:108-121",
+          "src/flask/json/provider.py:124-165",
+          "src/flask/json/provider.py:1-18"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "vector": {
+        "top3": [
+          "src/flask/json/provider.py:108-121",
+          "src/flask/json/provider.py:124-165",
+          "src/flask/json/provider.py:1-18"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "hybrid": {
+        "top3": [
+          "src/flask/json/provider.py:108-121",
+          "src/flask/json/provider.py:124-165",
+          "src/flask/json/provider.py:1-18"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      }
+    },
+    {
+      "id": "flask-13",
+      "style": "natural",
+      "question": "Where is the client used in tests to send simulated requests to the app?",
+      "v1": {
+        "top3": [
+          "src/flask/helpers.py:408-452",
+          "examples/tutorial/tests/test_auth.py:1-45",
+          "src/flask/app.py:778-822"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 0.0,
+        "mrr@10": 0.0,
+        "span_hit@5": 0.0
+      },
+      "bm25": {
+        "top3": [
+          "tests/test_blueprints.py:175-218",
+          "tests/test_helpers.py:33-91",
+          "src/flask/helpers.py:543-584"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 0.0,
+        "mrr@10": 0.0,
+        "span_hit@5": 0.0
+      },
+      "vector": {
+        "top3": [
+          "tests/conftest.py:49-51",
+          "examples/tutorial/tests/conftest.py:35-38",
+          "examples/javascript/tests/conftest.py:13-15"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 0.2,
+        "span_hit@5": 1.0
+      },
+      "hybrid": {
+        "top3": [
+          "tests/test_testing.py:73-86",
+          "docs/testing.rst:51-110",
+          "tests/test_request.py:57-70"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 0.2,
+        "span_hit@5": 1.0
+      }
+    },
+    {
+      "id": "flask-14",
+      "style": "identifier",
+      "question": "How does stream_with_context keep the request context available while a generator streams?",
+      "v1": {
+        "top3": [
+          "src/flask/helpers.py:38-82",
+          "src/flask/helpers.py:75-119",
+          "src/flask/helpers.py:112-156"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "bm25": {
+        "top3": [
+          "src/flask/helpers.py:63-148",
+          "src/flask/helpers.py:51-54",
+          "src/flask/helpers.py:57-60"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "vector": {
+        "top3": [
+          "src/flask/helpers.py:63-148",
+          "src/flask/helpers.py:57-60",
+          "src/flask/helpers.py:51-54"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "hybrid": {
+        "top3": [
+          "src/flask/helpers.py:63-148",
+          "src/flask/helpers.py:51-54",
+          "src/flask/helpers.py:57-60"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      }
+    },
+    {
+      "id": "flask-15",
+      "style": "natural",
+      "question": "How are context processors applied when a template is rendered?",
+      "v1": {
+        "top3": [
+          "src/flask/app.py:593-637",
+          "src/flask/sansio/scaffold.py:519-563",
+          "src/flask/templating.py:112-156"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "bm25": {
+        "top3": [
+          "src/flask/sansio/scaffold.py:549-564",
+          "src/flask/sansio/blueprints.py:643-653",
+          "src/flask/app.py:594-627"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 0.3333333333333333,
+        "span_hit@5": 1.0
+      },
+      "vector": {
+        "top3": [
+          "tests/test_templating.py:11-21",
+          "docs/templating.rst:201-260",
+          "src/flask/app.py:594-627"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 0.3333333333333333,
+        "span_hit@5": 1.0
+      },
+      "hybrid": {
+        "top3": [
+          "src/flask/sansio/scaffold.py:549-564",
+          "src/flask/app.py:594-627",
+          "tests/test_templating.py:11-21"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 0.5,
+        "span_hit@5": 1.0
+      }
+    },
+    {
+      "id": "flask-16",
+      "style": "natural",
+      "question": "How do class-based views dispatch to a method named after the HTTP verb?",
+      "v1": {
+        "top3": [
+          "src/flask/views.py:112-156",
+          "src/flask/views.py:1-45",
+          "src/flask/views.py:75-119"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "bm25": {
+        "top3": [
+          "src/flask/views.py:85-135",
+          "docs/views.rst:201-260",
+          "src/flask/views.py:16-77"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "vector": {
+        "top3": [
+          "src/flask/views.py:138-191",
+          "docs/views.rst:201-260",
+          "src/flask/views.py:1-15"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "hybrid": {
+        "top3": [
+          "docs/views.rst:201-260",
+          "src/flask/views.py:138-191",
+          "src/flask/views.py:16-77"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 0.5,
+        "span_hit@5": 1.0
+      }
+    },
+    {
+      "id": "flask-17",
+      "style": "natural",
+      "question": "How does the session serializer preserve tuples and bytes through JSON?",
+      "v1": {
+        "top3": [
+          "src/flask/sessions.py:260-304",
+          "src/flask/sessions.py:297-341",
+          "src/flask/json/tag.py:1-45"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 0.3333333333333333,
+        "span_hit@5": 0.0
+      },
+      "bm25": {
+        "top3": [
+          "src/flask/json/tag.py:219-248",
+          "src/flask/sessions.py:284-302",
+          "src/flask/json/tag.py:133-144"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "vector": {
+        "top3": [
+          "src/flask/sessions.py:271-275",
+          "src/flask/json/tag.py:1-59",
+          "tests/test_basic.py:471-499"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 0.5,
+        "span_hit@5": 1.0
+      },
+      "hybrid": {
+        "top3": [
+          "src/flask/sessions.py:271-275",
+          "src/flask/json/tag.py:133-144",
+          "src/flask/json/tag.py:1-59"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 0.5,
+        "span_hit@5": 1.0
+      }
+    },
+    {
+      "id": "flask-18",
+      "style": "natural",
+      "question": "Where is the maximum allowed request body size determined?",
+      "v1": {
+        "top3": [
+          "src/flask/app.py:1259-1303",
+          "src/flask/wrappers.py:75-119",
+          "examples/tutorial/flaskr/blog.py:75-119"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 0.5,
+        "span_hit@5": 1.0
+      },
+      "bm25": {
+        "top3": [
+          "src/flask/wrappers.py:92-113",
+          "docs/config.rst:301-360",
+          "src/flask/wrappers.py:115-117"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 0.0
+      },
+      "vector": {
+        "top3": [
+          "src/flask/wrappers.py:92-113",
+          "src/flask/wrappers.py:88-90",
+          "src/flask/wrappers.py:59-86"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "hybrid": {
+        "top3": [
+          "src/flask/wrappers.py:92-113",
+          "src/flask/wrappers.py:115-117",
+          "src/flask/wrappers.py:119-140"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 0.0
+      }
+    },
+    {
+      "id": "express-01",
+      "style": "identifier",
+      "question": "How does res.redirect set the Location header and the status code?",
+      "v1": {
+        "top3": [
+          "test/res.location.js:112-156",
+          "test/res.redirect.js:38-82",
+          "test/res.status.js:1-45"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 0.25,
+        "span_hit@5": 1.0
+      },
+      "bm25": {
+        "top3": [
+          "lib/response.js:801-867",
+          "test/res.location.js:127-139",
+          "test/res.redirect.js:1-60"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "vector": {
+        "top3": [
+          "lib/response.js:801-867",
+          "test/res.redirect.js:51-110",
+          "test/res.redirect.js:1-60"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "hybrid": {
+        "top3": [
+          "lib/response.js:801-867",
+          "test/res.location.js:127-139",
+          "test/res.redirect.js:1-60"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      }
+    },
+    {
+      "id": "express-02",
+      "style": "natural",
+      "question": "How are JSON responses produced, including the replacer, spaces and escape settings?",
+      "v1": {
+        "top3": [
+          "lib/response.js:223-267",
+          "lib/response.js:260-304",
+          "lib/response.js:1000-1044"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "bm25": {
+        "top3": [
+          "lib/response.js:224-250",
+          "lib/response.js:1014-1050",
+          "lib/response.js:252-308"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "vector": {
+        "top3": [
+          "lib/response.js:224-250",
+          "test/res.jsonp.js:301-360",
+          "lib/response.js:252-308"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "hybrid": {
+        "top3": [
+          "lib/response.js:224-250",
+          "lib/response.js:252-308",
+          "test/res.jsonp.js:301-360"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      }
+    },
+    {
+      "id": "express-03",
+      "style": "natural",
+      "question": "How does sending a response body pick the Content-Type and generate an ETag?",
+      "v1": {
+        "top3": [
+          "lib/response.js:297-341",
+          "lib/response.js:149-193",
+          "lib/response.js:482-526"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "bm25": {
+        "top3": [
+          "lib/response.js:113-172",
+          "lib/response.js:163-222",
+          "lib/utils.js:240-257"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "vector": {
+        "top3": [
+          "test/res.send.js:201-260",
+          "test/res.send.js:51-110",
+          "test/res.send.js:401-460"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 0.0,
+        "mrr@10": 0.125,
+        "span_hit@5": 0.0
+      },
+      "hybrid": {
+        "top3": [
+          "test/res.send.js:201-260",
+          "lib/response.js:113-172",
+          "lib/response.js:163-222"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 0.5,
+        "span_hit@5": 1.0
+      }
+    },
+    {
+      "id": "express-04",
+      "style": "natural",
+      "question": "How are cookies set on the response, including signed cookies and maxAge?",
+      "v1": {
+        "top3": [
+          "lib/response.js:741-785",
+          "examples/cookies/index.js:1-45",
+          "examples/cookies/index.js:38-53"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "bm25": {
+        "top3": [
+          "lib/response.js:724-781",
+          "examples/cookies/index.js:1-53",
+          "test/req.signedCookies.js:1-37"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "vector": {
+        "top3": [
+          "lib/response.js:724-781",
+          "test/req.signedCookies.js:1-37",
+          "test/res.cookie.js:151-210"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "hybrid": {
+        "top3": [
+          "lib/response.js:724-781",
+          "test/req.signedCookies.js:1-37",
+          "test/res.cookie.js:101-160"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      }
+    },
+    {
+      "id": "express-05",
+      "style": "natural",
+      "question": "Where are the default application settings like etag, query parser and trust proxy initialised?",
+      "v1": {
+        "top3": [
+          "lib/application.js:75-119",
+          "lib/application.js:334-378",
+          "lib/application.js:112-156"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "bm25": {
+        "top3": [
+          "lib/application.js:336-383",
+          "lib/application.js:85-141",
+          "lib/application.js:1-48"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "vector": {
+        "top3": [
+          "lib/application.js:85-141",
+          "test/config.js:108-122",
+          "lib/application.js:336-383"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "hybrid": {
+        "top3": [
+          "lib/application.js:85-141",
+          "lib/application.js:336-383",
+          "lib/application.js:49-83"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      }
+    },
+    {
+      "id": "express-06",
+      "style": "natural",
+      "question": "How are template engines registered and views rendered by the application?",
+      "v1": {
+        "top3": [
+          "lib/application.js:482-526",
+          "lib/application.js:260-304",
+          "lib/application.js:223-267"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "bm25": {
+        "top3": [
+          "lib/application.js:260-308",
+          "lib/application.js:505-575",
+          "examples/view-constructor/github-view.js:17-30"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "vector": {
+        "top3": [
+          "test/app.engine.js:15-83",
+          "test/res.render.js:101-160",
+          "test/app.render.js:151-210"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 0.0,
+        "mrr@10": 0.1111111111111111,
+        "span_hit@5": 0.0
+      },
+      "hybrid": {
+        "top3": [
+          "test/app.engine.js:15-83",
+          "lib/application.js:260-308",
+          "test/res.render.js:101-160"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 0.5,
+        "span_hit@5": 1.0
+      }
+    },
+    {
+      "id": "express-07",
+      "style": "natural",
+      "question": "How does a view locate its template file on disk across multiple view directories?",
+      "v1": {
+        "top3": [
+          "lib/view.js:75-119",
+          "lib/view.js:1-45",
+          "lib/view.js:38-82"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "bm25": {
+        "top3": [
+          "lib/application.js:505-575",
+          "examples/view-constructor/github-view.js:17-30",
+          "lib/view.js:161-187"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 0.3333333333333333,
+        "span_hit@5": 1.0
+      },
+      "vector": {
+        "top3": [
+          "lib/view.js:97-123",
+          "lib/view.js:161-187",
+          "test/app.render.js:201-260"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "hybrid": {
+        "top3": [
+          "lib/view.js:161-187",
+          "lib/view.js:38-95",
+          "lib/application.js:505-575"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      }
+    },
+    {
+      "id": "express-08",
+      "style": "identifier",
+      "question": "How does req.is check the request's Content-Type?",
+      "v1": {
+        "top3": [
+          "lib/request.js:223-267",
+          "test/req.is.js:75-119",
+          "lib/request.js:149-193"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 0.0
+      },
+      "bm25": {
+        "top3": [
+          "lib/request.js:243-281",
+          "lib/response.js:252-308",
+          "test/res.send.js:301-360"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "vector": {
+        "top3": [
+          "lib/request.js:243-281",
+          "test/req.is.js:51-110",
+          "test/req.is.js:1-60"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "hybrid": {
+        "top3": [
+          "lib/request.js:243-281",
+          "lib/request.js:85-130",
+          "test/req.is.js:51-110"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      }
+    },
+    {
+      "id": "express-09",
+      "style": "natural",
+      "question": "How is the client's IP address determined when the app runs behind a reverse proxy?",
+      "v1": {
+        "top3": [
+          "lib/request.js:334-378",
+          "test/req.ip.js:75-113",
+          "test/req.ip.js:38-82"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "bm25": {
+        "top3": [
+          "lib/request.js:345-366",
+          "lib/request.js:283-315",
+          "test/req.ip.js:51-104"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "vector": {
+        "top3": [
+          "test/req.ip.js:51-104",
+          "lib/request.js:345-366",
+          "lib/request.js:330-343"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 0.5,
+        "span_hit@5": 1.0
+      },
+      "hybrid": {
+        "top3": [
+          "lib/request.js:345-366",
+          "test/req.ip.js:51-104",
+          "lib/request.js:330-343"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      }
+    },
+    {
+      "id": "express-10",
+      "style": "natural",
+      "question": "How is the query string parser chosen between the simple and extended modes?",
+      "v1": {
+        "top3": [
+          "test/req.query.js:1-45",
+          "lib/request.js:223-267",
+          "lib/utils.js:149-193"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 0.3333333333333333,
+        "span_hit@5": 1.0
+      },
+      "bm25": {
+        "top3": [
+          "lib/utils.js:154-184",
+          "test/req.query.js:1-60",
+          "lib/utils.js:259-271"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "vector": {
+        "top3": [
+          "lib/utils.js:154-184",
+          "test/req.query.js:1-60",
+          "lib/utils.js:259-271"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "hybrid": {
+        "top3": [
+          "lib/utils.js:154-184",
+          "test/req.query.js:1-60",
+          "lib/utils.js:259-271"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      }
+    },
+    {
+      "id": "express-11",
+      "style": "natural",
+      "question": "How are strong and weak ETag generator functions created from the etag setting?",
+      "v1": {
+        "top3": [
+          "test/res.send.js:519-563",
+          "lib/utils.js:1-45",
+          "History.md:1629-1673"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 0.5,
+        "span_hit@5": 0.0
+      },
+      "bm25": {
+        "top3": [
+          "lib/utils.js:1-52",
+          "lib/utils.js:122-152",
+          "lib/utils.js:240-257"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "vector": {
+        "top3": [
+          "lib/utils.js:122-152",
+          "lib/utils.js:240-257",
+          "test/res.send.js:501-560"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "hybrid": {
+        "top3": [
+          "lib/utils.js:122-152",
+          "lib/utils.js:1-52",
+          "lib/utils.js:240-257"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      }
+    },
+    {
+      "id": "express-12",
+      "style": "identifier",
+      "question": "How does app.listen start the HTTP server?",
+      "v1": {
+        "top3": [
+          "test/app.listen.js:1-45",
+          "test/app.listen.js:38-73",
+          "lib/application.js:556-600"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 0.3333333333333333,
+        "span_hit@5": 1.0
+      },
+      "bm25": {
+        "top3": [
+          "lib/application.js:577-606",
+          "examples/session/index.js:1-37",
+          "examples/search/index.js:47-83"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "vector": {
+        "top3": [
+          "test/app.listen.js:1-73",
+          "lib/application.js:577-606",
+          "examples/auth/index.js:83-134"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 0.5,
+        "span_hit@5": 1.0
+      },
+      "hybrid": {
+        "top3": [
+          "lib/application.js:577-606",
+          "test/app.listen.js:1-73",
+          "examples/resource/index.js:27-95"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      }
+    },
+    {
+      "id": "express-13",
+      "style": "natural",
+      "question": "How does the response perform content negotiation based on the Accept header?",
+      "v1": {
+        "top3": [
+          "test/acceptance/content-negotiation.js:38-49",
+          "lib/response.js:482-526",
+          "test/acceptance/content-negotiation.js:1-45"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 0.5,
+        "span_hit@5": 0.0
+      },
+      "bm25": {
+        "top3": [
+          "lib/response.js:516-599",
+          "lib/response.js:649-692",
+          "test/acceptance/content-negotiation.js:1-49"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "vector": {
+        "top3": [
+          "test/res.format.js:182-248",
+          "test/acceptance/content-negotiation.js:1-49",
+          "test/req.accepts.js:51-125"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 0.2,
+        "span_hit@5": 1.0
+      },
+      "hybrid": {
+        "top3": [
+          "test/acceptance/content-negotiation.js:1-49",
+          "lib/response.js:516-599",
+          "test/res.format.js:182-248"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 0.5,
+        "span_hit@5": 1.0
+      }
+    },
+    {
+      "id": "express-14",
+      "style": "identifier",
+      "question": "How does res.download send a file as an attachment?",
+      "v1": {
+        "top3": [
+          "test/res.download.js:1-45",
+          "test/res.download.js:112-156",
+          "test/res.download.js:223-267"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 0.2,
+        "span_hit@5": 1.0
+      },
+      "bm25": {
+        "top3": [
+          "lib/response.js:419-486",
+          "test/res.download.js:351-410",
+          "test/res.download.js:251-310"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "vector": {
+        "top3": [
+          "test/res.attachment.js:51-119",
+          "lib/response.js:419-486",
+          "test/res.attachment.js:1-60"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 0.5,
+        "span_hit@5": 1.0
+      },
+      "hybrid": {
+        "top3": [
+          "lib/response.js:419-486",
+          "test/res.download.js:351-410",
+          "test/res.download.js:251-310"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      }
+    },
+    {
+      "id": "express-15",
+      "style": "natural",
+      "question": "How is middleware mounted, including mounting a sub-application at a path?",
+      "v1": {
+        "top3": [
+          "lib/application.js:149-193",
+          "lib/application.js:223-267",
+          "lib/application.js:112-156"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "bm25": {
+        "top3": [
+          "lib/application.js:180-244",
+          "lib/application.js:385-403",
+          "examples/static-files/index.js:1-43"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "vector": {
+        "top3": [
+          "lib/application.js:385-403",
+          "lib/application.js:180-244",
+          "test/app.use.js:1-60"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "hybrid": {
+        "top3": [
+          "lib/application.js:180-244",
+          "lib/application.js:385-403",
+          "test/app.use.js:1-60"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      }
+    },
+    {
+      "id": "express-16",
+      "style": "natural",
+      "question": "How is a request checked for freshness against If-None-Match and Last-Modified for caching?",
+      "v1": {
+        "top3": [
+          "lib/request.js:445-489",
+          "test/req.fresh.js:75-108",
+          "lib/request.js:482-526"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "bm25": {
+        "top3": [
+          "lib/request.js:460-486",
+          "test/res.send.js:301-360",
+          "test/req.fresh.js:51-108"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      },
+      "vector": {
+        "top3": [
+          "test/req.fresh.js:51-108",
+          "lib/request.js:460-486",
+          "test/req.fresh.js:1-60"
+        ],
+        "file_hit@1": 0.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 0.5,
+        "span_hit@5": 1.0
+      },
+      "hybrid": {
+        "top3": [
+          "lib/request.js:460-486",
+          "test/req.fresh.js:51-108",
+          "lib/request.js:488-499"
+        ],
+        "file_hit@1": 1.0,
+        "file_hit@5": 1.0,
+        "mrr@10": 1.0,
+        "span_hit@5": 1.0
+      }
+    }
+  ]
+}

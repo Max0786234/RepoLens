@@ -67,7 +67,8 @@ Developers spend more time *finding* the right code than changing it. LLMs can h
 - **Agentic investigation** — a tool-calling loop with 9 sandboxed, read-only tools (including call-graph navigation: who calls X, what X calls), seeded retrieval, duplicate-call protection and a budget-aware final answer.
 - **Citation verification** — each citation is classified ✅ verified (the agent read those lines), ⚠️ unverified (exists but was never inspected) or ❌ invalid (file/lines do not exist).
 - **Hybrid code search** — BM25 with identifier-aware tokenisation and field boosts, plus embeddings, fused with Reciprocal Rank Fusion.
-- **Structure-aware chunking** — functions, classes and methods via Python's `ast`, definition detection for JS/TS, Go, Rust, Java/Kotlin/C#/Swift, C/C++, Ruby and PHP, heading-based Markdown sections; also produces a symbol table.
+- **Structure-aware chunking** — functions, classes and methods from real syntax trees: Python's `ast`, and [tree-sitter](https://tree-sitter.github.io/) for JavaScript/TypeScript, Go, Rust, Java, C, C++, C#, Ruby and PHP (with a regex fallback when a grammar is not installed); heading-based Markdown sections; also produces a symbol table.
+- **Call-graph navigation** — `find_callers` / `find_callees` answer "who calls X?" and "what does X call?" in one tool call, with the exact call lines as evidence.
 - **Any source** — public GitHub URL (branch/commit aware, no `git` needed), ZIP or file upload, local folder; extraction is zip-slip and zip-bomb safe.
 - **Local-first, provider-agnostic** — runs fully offline with Ollama; any OpenAI-compatible API (OpenAI, Groq, Anthropic, OpenRouter, vLLM, …) is a configuration change.
 - **Fast after the first run** — the index is persisted and reused until files change; embeddings are cached per chunk, so editing one file re-embeds only its chunks.
@@ -122,7 +123,9 @@ RepoLens ships with a reproducible benchmark: **52 hand-labelled questions** ove
 | v2 vector (`embeddinggemma`) | 0.64 | 0.92 | 0.77 | 0.89 | 0.86 |
 | **v2 hybrid (BM25 + vector, RRF)** | **0.79** | **1.00** | **0.87** | **0.94** | **0.93** |
 
-On *identifier* questions every v2 method scores Span Hit@5 = 1.00 (v1: 0.70); the hybrid's advantage comes from paraphrased questions, where neither keywords nor embeddings alone are enough. v2 BM25 answers a query in **4 ms** vs 128 ms for v1 (which re-chunked the repository on every query); vector and hybrid search add one query embedding (≈5 s on the CPU-only test laptop through Ollama, milliseconds on a GPU or hosted API, cached per query).
+On *identifier* questions every v2 method scores Span Hit@5 = 1.00 (v1: 0.70); the hybrid's advantage comes from paraphrased questions, where neither keywords nor embeddings alone are enough. v2 BM25 answers a query in **4 ms** vs 128 ms for v1 (which re-chunked the repository on every query); vector and hybrid search add one query embedding (≈2–5 s on the CPU-only test laptop through Ollama, milliseconds on a GPU or hosted API, cached per query).
+
+Switching non-Python parsing from regexes to tree-sitter left these numbers unchanged (here and on a separate 18-question development set): its value is precise symbols for the agent's tools, not search ranking. Pre-improvement results are kept in [`eval/results/before/`](eval/results/before).
 
 *Span Hit@5: a top-5 result overlaps the exact lines that answer the question. File Hit@k: a result from a correct file in the top k. MRR@10: mean reciprocal rank of the first result from a correct file.*
 
@@ -134,10 +137,13 @@ On *identifier* questions every v2 method scores Span Hit@5 = 1.00 (v1: 0.70); t
 |---|---|---|---|---|---|---|
 | Quick mode · `qwen3:4b-instruct` · local CPU laptop | 0.78 | 0.78 | **0** | 1.0 | 331 s | – |
 | **Agent** · `qwen3:4b-instruct` · local CPU laptop | **1.00** | **1.00** | **0** | 1.0 | 164 s | – |
-| **Agent** · `openai/gpt-oss-120b` · Groq free tier | **1.00** | **1.00** | **0** | 3.2 | 90 s | 11k |
+| **Agent** · `qwen/qwen3.8-27b` · Groq free tier | **1.00** | **0.97**¹ | **0**¹ | 3.9 | 151 s | 18k |
+| **Agent** · `openai/gpt-oss-120b` · Groq free tier² | **1.00** | **1.00** | **0** | 3.2 | 90 s | 11k |
 
 - *Correct verified citation*: the answer cites the file that actually answers the question, and the agent was shown those lines. *Grounding*: share of all citations that are verified.
 - No answer in any setup cited a file or line that does not exist. The two Quick-mode misses were answers without any line citation.
+- ¹ The run flagged 2 citations as invalid; both were parser false positives (`socket.gaierror (lines 861-868)` read as a file name), fixed in the citation extractor — the model's citations were all real.
+- ² Measured before the call-graph tools and the "never describe unseen code" rule were added; it will be re-run when the free daily quota allows.
 - Groq times are dominated by deliberate pacing to the free tier's 8k tokens/minute limit, not by the model.
 
 Reproduce: `repolens eval` (retrieval), `repolens eval --skip-retrieval --agent --mode agent --limit 3 [--provider groq]` (answers). Model responses are cached, so a re-run costs no tokens. Raw per-question results, answers and token counts are in [`eval/results/`](eval/results).
@@ -226,14 +232,15 @@ print(result.grounding.label)  # e.g. "2/2 citations verified"
 | BM25 + embeddings with RRF | Lexical search nails identifiers, embeddings handle paraphrases; RRF fuses ranks without calibrating two unrelated score scales. |
 | Native Ollama API | Ollama's OpenAI-compatible endpoint cannot set the context window and silently truncates the start of long conversations — including the system prompt. |
 | Tolerate tool calls written as text | Some models (e.g. qwen2.5-coder) emit tool calls as JSON in the message; they are recovered only when the name matches a real tool. |
-| No LLM framework | The goal is to show — and control — the mechanics: ~3.8k lines of Python, one runtime dependency (`numpy`). |
+| No LLM framework | The goal is to show — and control — the mechanics: ~5k lines of Python, one required runtime dependency (`numpy`; tree-sitter grammars are optional). |
 | Follow-up-aware retrieval | "Are there tests for it?" has no searchable terms; follow-ups are searched together with the previous question, and evidence from earlier turns is remembered. |
 | Read-only, index-scoped tools | The agent can only read files that are in the index: no secrets (`.env`, keys), no dependencies, nothing outside the repository, no execution. |
 
 ## Limitations
 
 - On CPU-only machines local models are slow (an agent answer can take minutes); Quick mode or a hosted model is far faster.
-- Non-Python languages use regex-based definition detection, which can miss unusual syntax (tree-sitter would be more precise).
+- The call graph matches calls by name, not by type: `a.save()` links to every repository function called `save` (the tool says so, and shows the call lines).
+- A cross-encoder reranker was prototyped and dropped: it needs PyTorch, which does not fit free hosting, and it could not be measured on the development machine.
 - "Verified" means the agent *saw* the cited lines — it does not prove the claim about them is correct.
 - The benchmark is small (52 questions) and was labelled by the author; treat it as a regression suite and a sanity check, not a leaderboard.
 
