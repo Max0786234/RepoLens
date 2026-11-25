@@ -59,50 +59,53 @@ LOGO_SVG = """<svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns=
 
 CSS = """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+/* Theme-neutral styling: works in Streamlit's light AND dark themes (and with browser dark modes).
+   Text inherits the theme colour; borders/backgrounds are translucent; accents are mid-tone. */
 :root {
-  --rl-text: #0f172a; --rl-muted: #64748b; --rl-border: #e2e8f0; --rl-soft: #f8fafc;
-  --rl-accent: #1d4ed8; --rl-accent-soft: #eff6ff;
+  --rl-border: rgba(127, 127, 127, 0.28); --rl-soft: rgba(127, 127, 127, 0.07);
+  --rl-accent: #3b6ff5;
 }
-html, body, .stApp, .stMarkdown, button, input, textarea, select { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
-code, pre, .rl-mono { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace !important; }
-[data-testid="stToolbar"], [data-testid="stDecoration"], #MainMenu, footer { display: none !important; }
-.block-container { padding-top: 2.2rem; max-width: 1180px; }
-h1, h2, h3, h4 { letter-spacing: -0.015em; color: var(--rl-text); }
+code, pre, .rl-mono { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace !important; }
+/* Keep the header/toolbar container (it holds the sidebar open button); hide only decoration. */
+[data-testid="stDecoration"], #MainMenu, footer { display: none !important; }
+.block-container { padding-top: 3.6rem; max-width: 1180px; }
+h1, h2, h3, h4 { letter-spacing: -0.015em; }
 
 .rl-brand { display: flex; align-items: center; gap: 10px; margin-bottom: 2px; }
-.rl-brand .name { font-weight: 700; font-size: 1.15rem; color: var(--rl-text); }
-.rl-brand .ver { font-size: .72rem; color: var(--rl-muted); border: 1px solid var(--rl-border); border-radius: 6px; padding: 1px 6px; }
-.rl-section { text-transform: uppercase; letter-spacing: .08em; font-size: .7rem; font-weight: 600; color: var(--rl-muted); margin: 18px 0 6px; }
-.rl-eyebrow { text-transform: uppercase; letter-spacing: .09em; font-size: .75rem; font-weight: 600; color: var(--rl-accent); margin-bottom: 6px; }
-.rl-hero h1 { font-size: 2.35rem; line-height: 1.15; font-weight: 700; margin: 0 0 12px; }
-.rl-lead { font-size: 1.06rem; line-height: 1.6; color: #475569; max-width: 760px; margin-bottom: 26px; }
+.rl-brand .name { font-weight: 700; font-size: 1.15rem; }
+.rl-brand .ver { font-size: .72rem; opacity: .7; border: 1px solid var(--rl-border); border-radius: 6px; padding: 1px 6px; }
+.rl-section { text-transform: uppercase; letter-spacing: .08em; font-size: .7rem; font-weight: 600; opacity: .65; margin: 18px 0 6px; }
+.rl-eyebrow { text-transform: uppercase; letter-spacing: .09em; font-size: .75rem; font-weight: 600; color: var(--rl-accent); margin-bottom: 8px; }
+.rl-hero h1 { font-size: 2.35rem; line-height: 1.18; font-weight: 700; margin: 0 0 12px; padding: 0; }
+.rl-lead { font-size: 1.06rem; line-height: 1.6; opacity: .8; max-width: 760px; margin-bottom: 26px; }
 
 .rl-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 30px; }
-.rl-card { border: 1px solid var(--rl-border); border-radius: 12px; padding: 16px 18px; background: #fff; }
+.rl-card { border: 1px solid var(--rl-border); border-radius: 12px; padding: 16px 18px; background: var(--rl-soft); }
 .rl-card .step { font-size: .72rem; font-weight: 600; color: var(--rl-accent); letter-spacing: .06em; text-transform: uppercase; }
-.rl-card h4 { margin: 6px 0 6px; font-size: 1rem; font-weight: 600; }
-.rl-card p { margin: 0; color: #475569; font-size: .9rem; line-height: 1.55; }
+.rl-card h4 { margin: 6px 0 6px; font-size: 1rem; font-weight: 600; padding: 0; }
+.rl-card p { margin: 0; opacity: .8; font-size: .9rem; line-height: 1.55; }
 
 .rl-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .rl-stat { border: 1px solid var(--rl-border); border-radius: 10px; padding: 10px 14px; background: var(--rl-soft); }
-.rl-stat .v { font-size: 1.35rem; font-weight: 600; color: var(--rl-text); }
-.rl-stat .k { font-size: .75rem; color: var(--rl-muted); }
+.rl-stat .v { font-size: 1.35rem; font-weight: 600; }
+.rl-stat .k { font-size: .75rem; opacity: .7; }
 .rl-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 4px; }
-.rl-tag { font-size: .75rem; color: #334155; background: var(--rl-soft); border: 1px solid var(--rl-border); border-radius: 6px; padding: 2px 8px; }
+.rl-tag { font-size: .75rem; background: var(--rl-soft); border: 1px solid var(--rl-border); border-radius: 6px; padding: 2px 8px; }
 
 .rl-chip { display: inline-flex; align-items: center; gap: 6px; font-size: .78rem; font-weight: 600; border-radius: 999px; padding: 2px 10px; margin-right: 8px; }
 .rl-chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
-.rl-ok { background: #ecfdf5; color: #047857; } .rl-warn { background: #fffbeb; color: #b45309; }
-.rl-bad { background: #fef2f2; color: #b91c1c; } .rl-none { background: #f1f5f9; color: #475569; }
-.rl-meta { font-size: .78rem; color: var(--rl-muted); }
+.rl-ok { background: rgba(22, 163, 74, 0.14); color: #22a35a; }
+.rl-warn { background: rgba(217, 119, 6, 0.16); color: #d98a1a; }
+.rl-bad { background: rgba(220, 38, 38, 0.14); color: #e04848; }
+.rl-none { background: rgba(127, 127, 127, 0.14); color: inherit; opacity: .8; }
+.rl-meta { font-size: .78rem; opacity: .7; }
 .rl-cite { display: flex; align-items: baseline; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--rl-border); }
 .rl-cite:last-child { border-bottom: none; }
-.rl-cite .why { font-size: .82rem; color: var(--rl-muted); }
+.rl-cite .why { font-size: .82rem; opacity: .7; }
 .rl-cite a, .rl-cite .rl-mono { font-size: .84rem; }
-.rl-step { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: .8rem; color: #334155; padding: 2px 0; }
+.rl-step { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: .8rem; opacity: .9; padding: 2px 0; }
 .rl-step b { color: var(--rl-accent); font-weight: 500; }
-.rl-note { font-size: .82rem; color: var(--rl-muted); }
+.rl-note { font-size: .82rem; opacity: .7; }
 
 @media (max-width: 760px) {
   .rl-grid, .rl-stats { grid-template-columns: 1fr; }
@@ -161,7 +164,12 @@ GUIDE = [
     ),
 ]
 
-st.set_page_config(page_title="RepoLens", page_icon=":material/manage_search:", layout="wide")
+st.set_page_config(
+    page_title="RepoLens",
+    page_icon=":material/manage_search:",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 st.markdown(CSS, unsafe_allow_html=True)
 
 
