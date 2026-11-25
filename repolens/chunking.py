@@ -19,10 +19,13 @@ from __future__ import annotations
 
 import ast
 import hashlib
+import os
 import re
 from dataclasses import asdict, dataclass
 
 MAX_CHUNK_LINES = 90
+# Set REPOLENS_TREE_SITTER=0 to force the regex chunker (used by tests and comparisons).
+USE_TREE_SITTER = os.environ.get("REPOLENS_TREE_SITTER", "1") != "0"
 WINDOW_LINES = 60
 WINDOW_OVERLAP = 10
 MIN_SEGMENT_LINES = 4
@@ -478,6 +481,52 @@ def _chunk_markdown(path: str, lines: list[str], language: str) -> tuple[list[Ch
 # ---------------------------------------------------------------- entry point
 
 
+def _chunk_tree_sitter(
+    path: str, text: str, lines: list[str], language: str
+) -> tuple[list[Chunk], list[Symbol]] | None:
+    """Chunk with a real syntax tree when the grammar is installed (see ``ts_chunking``)."""
+    from .ts_chunking import collect_definitions
+
+    grammar = "tsx" if language == "typescript" and path.lower().endswith(".tsx") else language
+    found = collect_definitions(text, grammar)
+    if not found:
+        return None
+    found.sort()
+    symbols = [
+        Symbol(
+            qual.split(" (")[0].split(".")[-1],
+            qual,
+            kind,
+            path,
+            def_row + 1,
+            end + 1,
+            _signature(lines[def_row]) if def_row < len(lines) else "",
+        )
+        for start, def_row, end, kind, qual in found
+    ]
+    # Segments: outermost definitions; a large container is split into a header and its members.
+    segments: list[tuple[int, int, str, str | None]] = []
+    covered_until = -1
+    for i, (start, _def_row, end, kind, qual) in enumerate(found):
+        if start <= covered_until:
+            continue
+        children = [d for d in found[i + 1 :] if start < d[0] and d[2] <= end]
+        if kind in _CONTAINER_KINDS | {"class", "module"} and end - start + 1 > MAX_CHUNK_LINES and children:
+            if children[0][0] > start:
+                segments.append((start + 1, children[0][0], kind, qual))
+            continue
+        segments.append((start + 1, end + 1, kind, qual))
+        covered_until = end
+    cleaned: list[tuple[int, int, str, str | None]] = []
+    last_end = 0
+    for start, end, kind, qual in sorted(segments):
+        start = max(start, last_end + 1)
+        if end >= start:
+            cleaned.append((start, end, kind, qual))
+            last_end = end
+    return _segments_to_chunks(path, lines, cleaned, language), symbols
+
+
 def chunk_file(path: str, text: str, language: str) -> tuple[list[Chunk], list[Symbol]]:
     """Chunk one file. ``path`` must be a POSIX-style path relative to the repo root."""
     lines = text.splitlines()
@@ -488,6 +537,9 @@ def chunk_file(path: str, text: str, language: str) -> tuple[list[Chunk], list[S
         if result is not None:
             return result
     if language in PATTERNS_BY_LANGUAGE:
+        result = _chunk_tree_sitter(path, text, lines, language) if USE_TREE_SITTER else None
+        if result is not None:
+            return result
         return _chunk_regex(path, lines, language)
     if language in {"markdown"}:
         return _chunk_markdown(path, lines, language)
