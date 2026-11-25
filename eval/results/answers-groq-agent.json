@@ -1,0 +1,141 @@
+{
+  "mode": "agent",
+  "model": "openai/gpt-oss-120b",
+  "provider": "groq",
+  "questions": 9,
+  "summary": {
+    "correct_citation": 1.0,
+    "evidence_recall": 1.0,
+    "grounding": 1.0,
+    "cited": 1.0,
+    "invalid_citations": 0.0,
+    "steps": 3.222,
+    "tool_calls": 2.222,
+    "seconds": 89.789,
+    "tokens": 11054.0
+  },
+  "cache": {
+    "hits": 0,
+    "misses": 32,
+    "tokens_spent": 99486
+  },
+  "details": [
+    {
+      "id": "requests-01",
+      "correct_citation": 1.0,
+      "evidence_recall": 1.0,
+      "grounding": 1.0,
+      "cited": 1.0,
+      "invalid_citations": 0,
+      "steps": 1,
+      "tool_calls": 0,
+      "seconds": 3.7,
+      "tokens": 1947,
+      "answer": "**Answer**\n\nWhen a request is redirected, `requests` decides whether to drop the\u202f`Authorization` header in the `SessionRedirectMixin.rebuild_auth` method by calling `SessionRedirectMixin.should_strip_auth`.  \n\n`should_strip_auth` compares the original URL and the new URL:\n\n* If the hostnames differ, it returns **True** \u2192 the header is stripped.  \n* If the redirect is from **http \u2192 https** on the standard ports (80 \u2192 443) it returns **False** (the header is kept) for backward\u2011compatibility.  \n* Otherwise it checks whether the schemes differ or the ports are non\u2011standard; in those cases it also returns **True**.  \n\n`rebuild_auth` then removes the header only when `should_strip_auth` returns `True`:\n\n```python\nif \"Authorization\" in headers and self.should_strip_auth(original_url, url):\n    del headers[\"Authorization\"]\n```\n\nThus, the decision is based on hostname equality (different host \u2192 drop) and scheme/port changes, with a special allowance for same\u2011host http\u2011to\u2011https redirects on default ports.  \n\n**Citations**\n\n* `should_strip_auth` implementation showing the hostname and scheme/port checks\u3010src/requests/sessions.py:154-170\u3011.  \n* `rebuild_auth` calling `should_strip_auth` and deleting the header when it returns true\u3010src/requests/sessions.py:324-328\u3011."
+    },
+    {
+      "id": "requests-02",
+      "correct_citation": 1.0,
+      "evidence_recall": 1.0,
+      "grounding": 1.0,
+      "cited": 1.0,
+      "invalid_citations": 0,
+      "steps": 6,
+      "tool_calls": 6,
+      "seconds": 170.0,
+      "tokens": 23341,
+      "answer": "The loop that follows redirect responses and builds each subsequent request lives in **`SessionRedirectMixin.resolve_redirects`** inside `src/requests/sessions.py`.\n\nThe method starts by obtaining the first redirect target and then enters a `while url:` loop. Inside the loop it:\n\n1. Copies the original request (`prepared_request = req.copy()`).\n2. Updates the response history.\n3. Consumes the response body so the connection can be released.\n4. Checks the maximum\u2011redirect limit.\n5. Sends the next request (or yields it when `yield_requests=True`).\n6. Extracts the next redirect URL with `self.get_redirect_target(resp)` and repeats.\n\nThe loop is defined from line\u202f204 onward:\n\n```\n202 |         url = self.get_redirect_target(resp)\n203 |         previous_fragment = urlparse(req.url).fragment\n204 |         while url:\n205 |             prepared_request = req.copy()\n...\n306 |                 url = self.get_redirect_target(resp)\n307 |                 yield resp\n```\n\nThus, the redirect\u2011following loop that builds each next request is the `while url:` block in `SessionRedirectMixin.resolve_redirects` at **`src/requests/sessions.py:202-307`**."
+    },
+    {
+      "id": "requests-03",
+      "correct_citation": 1.0,
+      "evidence_recall": 1.0,
+      "grounding": 1.0,
+      "cited": 1.0,
+      "invalid_citations": 0,
+      "steps": 2,
+      "tool_calls": 1,
+      "seconds": 33.4,
+      "tokens": 5026,
+      "answer": "**Answer**\n\n`requests` checks the `NO_PROXY` (or `no_proxy`) environment variable in `requests.utils.should_bypass_proxies`.  \n\n1. **Read the variable** \u2013 If the caller does not supply a `no_proxy` argument, the function fetches the value from the environment, preferring the lowercase name but falling back to the uppercase one (`os.environ.get(\"no_proxy\") or os.environ.get(\"NO_PROXY\")`)\u3010src/requests/utils.py:817-826\u3011.  \n\n2. **Parse the URL** \u2013 The URL\u2019s hostname (and optional port) is extracted with `urlparse`\u3010src/requests/utils.py:827-828\u3011.  \n\n3. **Match against the list** \u2013  \n   * The variable is split on commas, whitespace stripped, and each entry is examined\u3010src/requests/utils.py:835-839\u3011.  \n   * If the hostname is an IPv4 address, entries are treated as either plain IPs or CIDR blocks; the address is compared directly or via `address_in_network`\u3010src/requests/utils.py:839-847\u3011.  \n   * For hostnames, the code checks an exact match (with or without port) and also matches suffixes (e.g., `.example.com` matches `foo.example.com`)\u3010src/requests/utils.py:848-859\u3011.  \n\n4. **Fallback to urllib** \u2013 If none of the explicit entries match, `requests` calls `urllib.request.proxy_bypass(hostname)` (wrapped in a temporary `no_proxy` environment) to let the standard library\u2019s proxy\u2011bypass logic run\u3010src/requests/utils.py:861-864\u3011.  \n\n5. **Result** \u2013 If any of the checks succeed, `should_bypass_proxies` returns `True`; otherwise it returns `False`. The higher\u2011level `get_environ_proxies` uses this result to return an empty proxy dict when the host should be bypassed\u3010src/requests/utils.py:873-880\u3011.\n\nThus, the `no_proxy` environment variable is used to list hostnames, IP addresses, or CIDR ranges that should **not** go through a proxy; `requests` parses this list and skips proxy usage for matching URLs."
+    },
+    {
+      "id": "flask-01",
+      "correct_citation": 1.0,
+      "evidence_recall": 1.0,
+      "grounding": 1.0,
+      "cited": 1.0,
+      "invalid_citations": 0,
+      "steps": 6,
+      "tool_calls": 5,
+      "seconds": 199.6,
+      "tokens": 20873,
+      "answer": "The Flask CLI loads an application by importing the module given with `--app` and then inspecting that module for a Flask instance.\n\n* `ScriptInfo.load_app()` (used by the CLI) calls `import_string` to import the module part of the value.  \n* Once the module object is obtained, it calls `find_best_app(module)`.  \n\n`find_best_app` implements the discovery logic:\n\n1. It first looks for attributes named **app** or **application** that are instances of `flask.Flask` (`getattr` loop, lines\u202f47\u201153)\u3010src/flask/cli.py:47-53\u3011.  \n2. If none are found, it collects **all** objects in the module that are `Flask` instances; if exactly one exists it returns that object (lines\u202f54\u201158)\u3010src/flask/cli.py:54-58\u3011.  \n3. If multiple Flask objects exist it raises `NoAppException` and asks the user to specify the name explicitly (lines\u202f59\u201164)\u3010src/flask/cli.py:59-64\u3011.  \n4. If still no instance is found, it searches for factory functions named **create_app** or **make_app** (lines\u202f66\u201170). It calls the factory, and if the result is a `Flask` instance it returns it (lines\u202f71\u201176)\u3010src/flask/cli.py:66-76\u3011.  \n5. If the factory cannot be called without arguments, it raises `NoAppException` with a hint to specify arguments (lines\u202f77\u201185)\u3010src/flask/cli.py:77-85\u3011.  \n6. When none of the above succeed, it raises `NoAppException` indicating that the app could not be found (lines\u202f87\u201191)\u3010src/flask/cli.py:87-91\u3011.\n\nThus, the command\u2011line tool discovers the application object by importing the module and then applying the above heuristic: look for common variable names, fall back to a single Flask instance, or invoke a factory function. If ambiguity remains, the user must specify the object explicitly."
+    },
+    {
+      "id": "flask-02",
+      "correct_citation": 1.0,
+      "evidence_recall": 1.0,
+      "grounding": 1.0,
+      "cited": 1.0,
+      "invalid_citations": 0,
+      "steps": 5,
+      "tool_calls": 3,
+      "seconds": 164.2,
+      "tokens": 19226,
+      "answer": "The session cookie is signed and serialized by **itsdangerous** using a `URLSafeTimedSerializer`.\n\n* The `SecureCookieSessionInterface` creates the serializer in `get_signing_serializer`.  \n  It builds a list of keys (fallbacks then the current `app.secret_key`) and returns a `URLSafeTimedSerializer` configured with the interface\u2019s `salt`, `serializer`, and signer options (`key_derivation` and `digest_method`)\u3010src/flask/sessions.py:303-321\u3011.\n\n* The serializer\u2019s `serializer` is `session_json_serializer`, a compact JSON\u2011based serializer that can handle extra Python types (datetime, tuples, etc.)\u3010src/flask/sessions.py:297-300\u3011.\n\n* When a request is processed, `open_session` loads the cookie value with `s.loads(val, max_age=\u2026)`, which verifies the signature and deserializes the payload back into a dict\u3010src/flask/sessions.py:323-334\u3011.\n\n* When a response is sent, `save_session` (not shown but part of the same interface) calls `s.dumps(session_data)` to produce a signed, timestamped string that is set as the cookie value.\n\nThus, the session cookie is **signed** with the app\u2019s secret key (and optional fallbacks) using the HMAC\u2011SHA1 signer (`digest_method = _lazy_sha1`) and **serialized** with the JSON\u2011compatible `session_json_serializer`, all wrapped by `itsdangerous.URLSafeTimedSerializer`."
+    },
+    {
+      "id": "flask-03",
+      "correct_citation": 1.0,
+      "evidence_recall": 1.0,
+      "grounding": 1.0,
+      "cited": 1.0,
+      "invalid_citations": 0,
+      "steps": 1,
+      "tool_calls": 0,
+      "seconds": 31.0,
+      "tokens": 2729,
+      "answer": "**Answer**\n\n`flask.url_for` (the helper in *src/flask/helpers.py*) simply forwards to the application\u2019s `Flask.url_for` method. The real work is done in `Flask.url_for` (in *src/flask/app.py*):\n\n1. **Context & blueprint handling**  \n   * If a request context exists, it obtains the request\u2019s `url_adapter` and the current blueprint name.  \n   * When the supplied `endpoint` starts with a dot (`\".\"`), it is made relative to the current blueprint (`endpoint = f\"{blueprint_name}{endpoint}\"`).\u3010src/flask/app.py:1195-1212\u3011\n\n2. **Building the URL**  \n   * The method calls the underlying Werkzeug URL adapter\u2019s `build` method:  \n\n   ```python\n   rv = url_adapter.build(\n       endpoint,\n       values,\n       method=_method,\n       url_scheme=_scheme,\n       force_external=_external,\n   )\n   ```\u3010src/flask/app.py:1248-1254\u3011\n\n   * `url_scheme` receives the value of the `_scheme` argument. If `_scheme` is provided, Werkzeug will use that scheme **only when an external URL is being generated** (i.e., when `force_external` is true).  \n   * `force_external` receives the `_external` flag. When `_external` is true, the generated URL includes the scheme and host (e.g., `https://example.com/...`). When false (the default), the URL is relative to the application root.\n\n3. **Error handling**  \n   * If `url_adapter.build` raises a `BuildError`, Flask calls `handle_url_build_error` with the original values plus the special `_anchor`, `_method`, `_scheme`, and `_external` parameters. This allows custom error handling or fallback URL generation.\u3010src/flask/app.py:1255-1259\u3011\n\n4. **Anchor handling**  \n   * After a successful build, if an `_anchor` is supplied, it is URL\u2011quoted and appended as `#anchor`.\u3010src/flask/app.py:1261-1264\u3011\n\n5. **Return**  \n   * The final string (`rv`) is returned to the caller.\n\n**Putting it together**\n\n- When `_external=False` (default) and `_scheme=None`, `url_adapter.build` returns a path\u2011only URL (e.g., `/hello`).\n- When `_external=True`, `url_adapter.build` prefixes the URL with the request\u2019s scheme and host (or the values from the application\u2019s `SERVER_NAME` config).  \n- If `_scheme` is also supplied (e.g., `_scheme='https'`), that scheme overrides the request\u2019s scheme in the external URL, producing `https://example.com/...`.\n\nThus, `url_for` builds a URL by delegating to Werkzeug\u2019s URL adapter, passing `_external` as `force_external` and `_scheme` as `url_scheme`, which together control whether the result is absolute and which scheme it uses."
+    },
+    {
+      "id": "express-01",
+      "correct_citation": 1.0,
+      "evidence_recall": 1.0,
+      "grounding": 1.0,
+      "cited": 1.0,
+      "invalid_citations": 0,
+      "steps": 2,
+      "tool_calls": 1,
+      "seconds": 39.3,
+      "tokens": 5317,
+      "answer": "**Answer**\n\n`res.redirect` builds the redirect URL, writes it into the **Location** response header, and then sends the response with the appropriate HTTP status code.\n\n**How it works**\n\n1. **Determine status and URL** \u2013 the function starts with a default status of `302`. If two arguments are passed, the first is taken as the status and the second as the URL.  \n   ```js\n   var status = 302;\n   if (arguments.length === 2) {\n     status = arguments[0];\n     address = arguments[1];\n   }\n   ```\n\n2. **Set the `Location` header** \u2013 it calls `this.location(address)`, which normalises the URL and sets the `Location` header on the response object. The call returns the response, and `.get('Location')` retrieves the final header value (which may have been encoded).  \n   ```js\n   // Set location header\n   address = this.location(address).get('Location');\n   ```\n\n3. **Prepare a response body** (plain\u2011text or HTML) that includes the status message and the URL, but the body is optional.\n\n4. **Send the response with the chosen status** \u2013 after building the body it sets the status with `this.status(status)` and then ends the response.  \n   ```js\n   // Respond\n   this.status(status);\n   this.set('Content-Length', Buffer.byteLength(body));\n   \u2026\n   this.end(body);\n   ```\n\nThus, `res.redirect` sets the **Location** header via `res.location()` and then sets the HTTP status code with `res.status(status)` before sending the response.  \n\n**Citations**\n\n- Default status and handling of two arguments: lines\u202f818\u2011824 in `lib/response.js`\u3010lib/response.js:818-824\u3011  \n- Setting the `Location` header: line\u202f838\u2011840\u3010lib/response.js:838-840\u3011  \n- Sending the response with the chosen status: lines\u202f858\u2011861\u3010lib/response.js:858-861\u3011."
+    },
+    {
+      "id": "express-02",
+      "correct_citation": 1.0,
+      "evidence_recall": 1.0,
+      "grounding": 1.0,
+      "cited": 1.0,
+      "invalid_citations": 0,
+      "steps": 2,
+      "tool_calls": 1,
+      "seconds": 46.3,
+      "tokens": 6507,
+      "answer": "**How Express builds a JSON response**\n\n1. **`res.json()` (and `res.jsonp()`) read the app\u2011level settings**  \n   ```js\n   var app       = this.app;\n   var escape    = app.get('json escape');   // true/false\n   var replacer  = app.get('json replacer'); // function or array or undefined\n   var spaces    = app.get('json spaces');   // number or string or undefined\n   var body = stringify(obj, replacer, spaces, escape);\n   ```  \n   (see `lib/response.js:236\u2011242`\u30103\u2020L236-L242\u3011)\n\n2. **`stringify` does the actual conversion**  \n\n   ```js\n   function stringify (value, replacer, spaces, escape) {\n     // use JSON.stringify with the provided replacer / spaces when any is set\n     var json = replacer || spaces\n       ? JSON.stringify(value, replacer, spaces)\n       : JSON.stringify(value);\n\n     // optional HTML\u2011sniffing escape\n     if (escape && typeof json === 'string') {\n       json = json.replace(/[<>&]/g, function (c) {\n         switch (c.charCodeAt(0)) {\n           case 0x3c: return '\\\\u003c';   // '<'\n           case 0x3e: return '\\\\u003e';   // '>'\n           case 0x26: return '\\\\u0026';   // '&'\n         }\n       });\n     }\n     return json;\n   }\n   ```  \n   (see `lib/response.js:1026\u20111049`\u30101\u2020L1026-L1049\u3011)\n\n3. **Result handling**  \n\n   * If a `Content\u2011Type` header isn\u2019t already set, `res.json()` sets it to `application/json` (or `res.jsonp()` sets additional headers for JavaScript).  \n   * The string returned by `stringify` is passed to `res.send(body)` which writes it to the response.\n\n**Summary of the three settings**\n\n| Setting | Where it is read | Effect on `stringify` |\n|---------|------------------|-----------------------|\n| **`json replacer`** | `app.get('json replacer')` | Passed as the second argument to `JSON.stringify`; lets you filter or transform values. |\n| **`json spaces`** | `app.get('json spaces')` | Passed as the third argument to `JSON.stringify`; adds indentation (e.g., `2`). |\n| **`json escape`** | `app.get('json escape')` (boolean) | After stringification, replaces `<`, `>`, `&` with their Unicode escape sequences (`\\u003c`, `\\u003e`, `\\u0026`) to prevent HTML\u2011sniffing attacks. |\n\nThus, a JSON response is produced by calling `JSON.stringify` with the optional *replacer* and *spaces* values, then optionally escaping HTML\u2011sensitive characters when the `json escape` setting is enabled, and finally sending the resulting string as the response body."
+    },
+    {
+      "id": "express-03",
+      "correct_citation": 1.0,
+      "evidence_recall": 1.0,
+      "grounding": 1.0,
+      "cited": 1.0,
+      "invalid_citations": 0,
+      "steps": 4,
+      "tool_calls": 3,
+      "seconds": 120.6,
+      "tokens": 14520,
+      "answer": "**Answer**\n\nWhen `res.send()` is called Express decides the **Content\u2011Type** and, if appropriate, creates an **ETag** in two separate steps:\n\n1. **Pick the Content\u2011Type**  \n   * `res.send()` first inspects the type of the value passed (`body`).  \n   * If the value is a **string**, it assumes HTML. It checks whether a `Content\u2011Type` header is already set.  \n     * If a header exists, Express calls `setCharset()` to add \u201ccharset=utf\u20118\u201d (or the charset you specify).  \n     * If no header exists, it calls `this.type('html')`, which maps \u201chtml\u201d to `text/html` (via `mime.lookup`).  \n   * If the value is a **Buffer**, **Uint8Array**, or any other `ArrayBuffer.isView` object, and no `Content\u2011Type` is set, Express calls `this.type('bin')`, which resolves to `application/octet-stream`.  \n   * For any other object (including plain objects and arrays) Express delegates to `res.json()`, which sets `Content\u2011Type` to `application/json`.  \n\n   The relevant code (excerpt) is:\n\n   ```js\n   switch (typeof chunk) {\n     case 'string':\n       encoding = 'utf8';\n       const type = this.get('Content-Type');\n       if (typeof type === 'string') {\n         this.set('Content-Type', setCharset(type, 'utf-8'));\n       } else {\n         this.type('html');               // \u2190 default for strings\n       }\n       break;\n     case 'boolean':\n     case 'number':\n     case 'object':\n       if (chunk === null) {\n         chunk = '';\n       } else if (ArrayBuffer.isView(chunk)) {\n         if (!this.get('Content-Type')) {\n           this.type('bin');               // \u2190 default for buffers/Uint8Array\n         }\n       } else {\n         return this.json(chunk);          // \u2190 objects \u2192 JSON\n       }\n       break;\n   }\n   ```\n   (`lib/response.js:134\u2011158`)\n\n2. **Generate an ETag**  \n   * After the body has been normalised, Express decides whether it should generate an ETag.  \n   * It looks up the app\u2011level setting `etag fn` (the compiled ETag function) with `app.get('etag fn')`.  \n   * An ETag is generated only if **no** `ETag` header has already been set on the response **and** the `etag fn` is a function.  \n\n   ```js\n   var etagFn = app.get('etag fn');\n   var generateETag = !this.get('ETag') && typeof etagFn === 'function';\n   ```\n\n   * When a body is present, its length (`len`) is determined (either directly from a Buffer or via `Buffer.byteLength`).  \n   * If `generateETag` is true and the length is known, the compiled ETag function is called with the body (or Buffer) and its encoding. If the function returns a value, Express sets the `ETag` header:\n\n   ```js\n   if (generateETag && len !== undefined) {\n     if ((etag = etagFn(chunk, encoding))) {\n       this.set('ETag', etag);\n     }\n   }\n   ```\n   (`lib/response.js:161\u2011193`)\n\n   * The default ETag function is compiled in `lib/utils.js` (`exports.compileETag`) and can be \u201cweak\u201d, \u201cstrong\u201d, or disabled via the app setting `etag`.\n\n**Summary**\n\n- `res.send()` determines the `Content\u2011Type` based on the JavaScript type of the body (string \u2192 `text/html`; Buffer/Uint8Array \u2192 `application/octet-stream`; object \u2192 `application/json`).  \n- After the body is prepared, Express checks the app\u2019s `etag fn` setting; if no `ETag` header is already present, it computes an ETag using that function and adds it to the response.  \n\nThese mechanisms are implemented in `lib/response.js` (lines\u202f134\u2011158 for content type and lines\u202f161\u2011193 for ETag generation)."
+    }
+  ]
+}

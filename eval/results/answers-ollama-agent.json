@@ -1,0 +1,125 @@
+{
+  "mode": "agent",
+  "model": "qwen3:4b-instruct",
+  "questions": 9,
+  "summary": {
+    "correct_citation": 1.0,
+    "evidence_recall": 1.0,
+    "grounding": 1.0,
+    "cited": 1.0,
+    "invalid_citations": 0.0,
+    "steps": 1.0,
+    "tool_calls": 0.0,
+    "seconds": 163.678
+  },
+  "details": [
+    {
+      "id": "requests-01",
+      "correct_citation": 1.0,
+      "evidence_recall": 1.0,
+      "grounding": 1.0,
+      "cited": 1.0,
+      "invalid_citations": 0,
+      "steps": 1,
+      "tool_calls": 0,
+      "seconds": 151.9,
+      "answer": "Requests decides whether to drop the Authorization header when following a redirect by evaluating the hostnames and schemes of the original and redirected URLs using the `should_strip_auth` method in `src/requests/sessions.py`.\n\nIf the hostname of the original URL differs from the hostname of the new URL, the method returns `True`, indicating that the Authorization header should be stripped. This prevents credential leakage when redirecting to a different host.\n\nAdditionally, there is a special case for HTTP-to-HTTPS redirects using standard ports (port 80 for HTTP and port 443 for HTTPS). If the original URL is HTTP on port 80 (or no port specified) and the new URL is HTTPS on port 443 (or no port specified), the method returns `False`, preserving the Authorization header to maintain backward compatibility.\n\nThis logic is implemented in the `should_strip_auth` method, which is called within the `rebuild_auth` method to determine whether to remove the Authorization header before reusing the request for the redirect.\n\n**Key code:**\n- `src/requests/sessions.py:154-184` defines `should_strip_auth` and evaluates hostname and scheme differences.\n- `src/requests/sessions.py:324-327` uses `should_strip_auth` to conditionally remove the Authorization header in `rebuild_auth`.\n\nCitations:\n- `src/requests/sessions.py:154-184`\n- `src/requests/sessions.py:324-327`"
+    },
+    {
+      "id": "requests-02",
+      "correct_citation": 1.0,
+      "evidence_recall": 1.0,
+      "grounding": 1.0,
+      "cited": 1.0,
+      "invalid_citations": 0,
+      "steps": 1,
+      "tool_calls": 0,
+      "seconds": 184.6,
+      "answer": "The loop that follows redirect responses and builds each next request is implemented in the `resolve_redirects` method of the `SessionRedirectMixin` class in `src/requests/sessions.py`.\n\nThis method iteratively processes redirect responses by extracting the redirect URL from each response and constructing a new request to follow the redirect. It yields each response (including the original and subsequent redirects) in sequence, effectively forming a loop that continues until no more redirects are needed or the maximum number of redirects is reached.\n\nKey lines in the implementation:\n- Line 289\u2013307: The method begins by preparing the next request and sending it via `self.send`, then extracts the redirect target using `self.get_redirect_target(resp)`.\n- Line 305: `url = self.get_redirect_target(resp)` extracts the redirect URL from the response.\n- Line 306: `yield resp` returns the current response, and the loop continues in the next iteration of the generator.\n\nThis loop is part of a generator-based design, meaning it does not execute all redirects at once but instead yields each response one at a time, allowing for streaming and conditional processing.\n\n**Path**: `src/requests/sessions.py:286-307`  \n**Method**: `SessionRedirectMixin.resolve_redirects`  \n**Mechanism**: A generator that yields responses, each with a new request built from the redirect target.\n\n> Note: The actual loop structure is not a traditional `for` or `while` loop but is implemented as a generator that yields responses one by one, with each yield triggering the next request via `self.send` in the next iteration. This is evident in the test cases (e.g., `test_requests_are_updated_each_time`) that verify the generator produces responses with correct methods (e.g., switching from POST to GET) after redirects.\n\nThis design enables efficient handling of redirects without loading all responses into memory at once."
+    },
+    {
+      "id": "requests-03",
+      "correct_citation": 1.0,
+      "evidence_recall": 1.0,
+      "grounding": 1.0,
+      "cited": 1.0,
+      "invalid_citations": 0,
+      "steps": 1,
+      "tool_calls": 0,
+      "seconds": 239.8,
+      "answer": "The `no_proxy` environment variable is used to skip proxies for specific hosts by checking whether a given URL's hostname matches a pattern defined in the `no_proxy` setting. This behavior is implemented in the `requests` library through the `should_bypass_proxies` function in `src/requests/utils.py`.\n\nHere\u2019s how it works:\n\n1. **Environment Variable Detection**: The function first checks if the `no_proxy` environment variable is set (either as `no_proxy` or `NO_PROXY`, in lowercase or uppercase). If not set, it defaults to `None`.\n\n2. **URL Parsing**: The URL is parsed to extract the hostname (e.g., `192.168.0.1` or `localhost`).\n\n3. **Bypass Logic**: If `no_proxy` is defined and the hostname matches any entry in the `no_proxy` list (e.g., `192.168.0.0/24`, `127.0.0.1`, `localhost.localdomain`), the function returns `True`, indicating that proxies should be bypassed.\n\n4. **Proxy Resolution**: In `resolve_proxies`, if `trust_env` is `True` and the URL does not match the `no_proxy` list, the function uses the environment proxies. Otherwise, it returns an empty dictionary, effectively skipping proxies.\n\nThis mechanism ensures that certain hosts\u2014like local networks or localhost\u2014are not routed through proxies, which is useful for performance or security reasons.\n\nKey code references:\n- `src/requests/utils.py:810-870`: Defines `should_bypass_proxies`, which evaluates whether to skip proxies based on the `no_proxy` setting.\n- `src/requests/utils.py:873-882`: `get_environ_proxies` returns an empty dict if `should_bypass_proxies` returns `True`.\n- `src/requests/utils.py:911-939`: `resolve_proxies` uses `should_bypass_proxies` to determine proxy usage when `trust_env` is enabled.\n\nExample usage in tests:\n```python\n# Test that URLs matching no_proxy are bypassed\nassert get_environ_proxies(\"http://192.168.0.1/\", no_proxy=None) == {}\n```\n\nThis behavior is consistent with other HTTP tools like `curl` and `wget`, ensuring compatibility across tools.\n\nCitations:\n- `src/requests/utils.py:810-870`\n- `src/requests/utils.py:873-882`\n- `src/requests/utils.py:911-939`\n- `tests/test_utils.py:220-282`"
+    },
+    {
+      "id": "flask-01",
+      "correct_citation": 1.0,
+      "evidence_recall": 1.0,
+      "grounding": 1.0,
+      "cited": 1.0,
+      "invalid_citations": 0,
+      "steps": 1,
+      "tool_calls": 0,
+      "seconds": 192.2,
+      "answer": "The command line tool discovers the application object by searching for a Flask instance within a given module using a prioritized strategy defined in `find_best_app` function in `src/flask/cli.py`.\n\nFirst, it checks for common attribute names like `\"app\"` or `\"application\"` in the module's namespace. If either attribute exists and is an instance of `Flask`, it immediately returns that instance. This is the most common pattern in Flask applications.\n\nIf no such attribute is found, it scans all objects in the module's `__dict__` to find any object that is an instance of `Flask`. If exactly one such object is found, it returns that object. If multiple Flask instances are detected, it raises an error indicating the ambiguity and suggests using a qualified name (e.g., `module:name`) to specify the correct one.\n\nThis mechanism allows the CLI to locate the Flask application without requiring explicit configuration, making it easy to use in typical Flask projects.\n\n**Evidence:**\n- `src/flask/cli.py:48-53`: Checks for `app` or `application` attributes.\n- `src/flask/cli.py:55-58`: Scans `module.__dict__.values()` for Flask instances.\n- `src/flask/cli.py:60-64`: Raises error if multiple Flask instances are found.\n\nThis behavior is documented in `docs/cli.rst:14-24`, which explains that the default behavior is to look for an \"app\" or \"wsgi\" object in the module."
+    },
+    {
+      "id": "flask-02",
+      "correct_citation": 1.0,
+      "evidence_recall": 1.0,
+      "grounding": 1.0,
+      "cited": 1.0,
+      "invalid_citations": 0,
+      "steps": 1,
+      "tool_calls": 0,
+      "seconds": 108.2,
+      "answer": "The session cookie is signed and serialized using the `itsdangerous` library within Flask's `SecureCookieSessionInterface`. \n\n- **Signing**: The session data is signed using HMAC (Hash-based Message Authentication Code) with a secret key derived from `app.secret_key` and optional fallback keys. The signing process uses the `key_derivation=\"hmac\"` setting and applies a salt (`salt=\"cookie-session\"`) to the secret key, ensuring that the signature is both secure and unique. The actual signing is handled by `URLSafeTimedSerializer` with the `signer_kwargs` configured for HMAC and SHA-1 hashing (`digest_method=_lazy_sha1`). This is defined in `src/flask/sessions.py:284-321` and implemented in `get_signing_serializer`.\n\n- **Serialization**: The session data is serialized using a compact JSON-based serializer (`session_json_serializer`) that supports Python types like `datetime` and tuples. This serializer is specified in the `serializer` attribute of `SecureCookieSessionInterface`. The serialized data is then encoded into a cookie value.\n\nThe full implementation is in `src/flask/sessions.py:303-321`, where `URLSafeTimedSerializer` is instantiated with the keys (secret key and fallbacks), salt, and signer configuration.\n\nCitations:\n- `src/flask/sessions.py:284-321` for the `SecureCookieSessionInterface` class and its configuration.\n- `src/flask/sessions.py:303-321` for the `get_signing_serializer` method and its use of `URLSafeTimedSerializer`.\n- `docs/api.rst:51-110` for the documentation on session usage and security."
+    },
+    {
+      "id": "flask-03",
+      "correct_citation": 1.0,
+      "evidence_recall": 1.0,
+      "grounding": 1.0,
+      "cited": 1.0,
+      "invalid_citations": 0,
+      "steps": 1,
+      "tool_calls": 0,
+      "seconds": 129.1,
+      "answer": "The `url_for` function builds a URL for an endpoint by leveraging Flask's URL routing infrastructure. It uses the `url_adapter` to construct the URL based on the endpoint and provided values, with optional parameters for scheme and external URL generation.\n\nKey steps in the process:\n\n- The function accepts an `endpoint` (e.g., \"hello\") and optional parameters like `_external`, `_scheme`, and `values` (URL variables).\n- If the endpoint starts with a dot (`.`), it resolves relative to the current blueprint name (if any), otherwise it uses the endpoint as-is.\n- The `url_adapter` (from the current request or application context) is used to build the URL using the endpoint and values.\n- The `_scheme` parameter, if provided, is passed to `build()` to override the default scheme (e.g., \"https\").\n- The `_external` parameter, when `True`, forces the URL to be external (with full domain and scheme), while in a request context, it defaults to not including the scheme and domain.\n- If an anchor (`_anchor`) is provided, it is appended as `#anchor` to the URL.\n- The final URL is returned as a string.\n\nThis behavior is implemented in `src/flask/app.py:1145-1265`, where the `Flask.url_for` method orchestrates the process, and `url_adapter.build()` performs the actual URL construction.\n\nExample usage:\n```python\nurl_for('hello', _external=True)  # Returns \"https://example.com/hello\"\nurl_for('hello', _scheme='http', _external=True)  # Returns \"http://example.com/hello\"\n```\n\nCitations:\n- `src/flask/app.py:1145-1265` (main implementation of `Flask.url_for`)\n- `src/flask/app.py:1245-1265` (call to `url_adapter.build` with `_scheme` and `_external`)\n- `src/flask/helpers.py:200-251` (definition of `url_for` with parameter signatures)"
+    },
+    {
+      "id": "express-01",
+      "correct_citation": 1.0,
+      "evidence_recall": 1.0,
+      "grounding": 1.0,
+      "cited": 1.0,
+      "invalid_citations": 0,
+      "steps": 1,
+      "tool_calls": 0,
+      "seconds": 175.2,
+      "answer": "The `res.redirect` method sets the `Location` header and the status code as follows:\n\n- It defaults to a status code of `302` (Found) if no status is provided.\n- If a status code is provided, it uses that value; otherwise, it defaults to `302`.\n- It calls `this.location(address).get('Location')` to compute the final URL for the `Location` header, which ensures proper URL encoding and path resolution.\n- The `Location` header is then set in the response headers.\n- The status code is set directly on the response object, which is sent in the HTTP response.\n\nThis behavior is defined in `lib/response.js:801-867`:\n\n```javascript\nres.redirect = function redirect(url) {\n  var address = url;\n  var body;\n  var status = 302;\n\n  // allow status / url\n  if (arguments.length === 2) {\n    status = arguments[0]\n    address = arguments[1]\n  }\n\n  if (!address) {\n    deprecate('Provide a url argument');\n  }\n\n  if (typeof address !== 'string') {\n    deprecate('Url must be a string');\n  }\n\n  if (typeof status !== 'number') {\n    deprecate('Status must be a number');\n  }\n\n  // Set location header\n  address = this.location(address).get('Location');\n\n  // Support text/{plain,html} by default\n  this.format({\n    // ...\n  });\n};\n```\n\nThe `this.location()` method is responsible for resolving the URL and encoding it properly (e.g., URL-encoding special characters), which is then used as the value of the `Location` header. The status code is set via the `status` variable and is applied to the response when the response is sent.\n\nThis is validated in test cases such as `test/res.redirect.js`, where assertions confirm that the `Location` header is set correctly and the status code is `302` by default.\n\n**Citations:**\n- `lib/response.js:801-867` for the implementation of `res.redirect`.\n- `test/res.redirect.js:1-60` and `test/res.redirect.js:151-214` for test validation of behavior."
+    },
+    {
+      "id": "express-02",
+      "correct_citation": 1.0,
+      "evidence_recall": 1.0,
+      "grounding": 1.0,
+      "cited": 1.0,
+      "invalid_citations": 0,
+      "steps": 1,
+      "tool_calls": 0,
+      "seconds": 134.3,
+      "answer": "JSON responses in Express are produced via the `res.json()` method, which uses settings defined in the Express application to control how JSON is stringified and sent. The key settings are:\n\n- **`json replacer`**: A function that transforms keys or values before stringification. It is passed to the `stringify` function and can be used to filter or modify data (e.g., to omit certain fields).\n- **`json spaces`**: A number that controls the indentation of the JSON output. It determines how many spaces are used for indentation (e.g., `2` for two spaces). A value of `0` produces compact JSON, while higher values produce more readable output.\n- **`json escape`**: A boolean (or function) that determines whether special characters (like `&`, `<`, `>`) are escaped in the JSON output. When enabled, it performs Unicode escaping to prevent HTML injection or sniffing.\n\nThese settings are retrieved from the Express application instance using `app.get('json ...')`, and are applied during the `res.json()` call.\n\nThe actual stringification is performed by the `stringify` function (likely from `json-stringify-safe`), which takes the object, replacer, spaces, and escape settings as arguments.\n\nExample usage:\n```js\nres.json({ user: 'tj' }, null, 2); // uses 2 spaces, no replacer\nres.json({ '&': '<script>' }, undefined, 0); // no escape, compact output\n```\n\nThe `res.json()` method sets the `Content-Type` header to `application/json` by default and then sends the resulting string via `this.send(body)`.\n\nCitations:\n- `lib/response.js:236-250`: Defines `res.json`, retrieves settings, and calls `stringify`.\n- `test/res.json.js:107-124`: Tests `json escape` and `json spaces` behavior.\n- `test/res.jsonp.js:315-327`: Tests `json escape` with JSONP, showing Unicode escaping of HTML characters.\n\nNote: The `stringify` function is not shown in the results, but its role is implied by the parameters passed to it. The actual implementation is likely in a separate utility (e.g., `json-stringify-safe`)."
+    },
+    {
+      "id": "express-03",
+      "correct_citation": 1.0,
+      "evidence_recall": 1.0,
+      "grounding": 1.0,
+      "cited": 1.0,
+      "invalid_citations": 0,
+      "steps": 1,
+      "tool_calls": 0,
+      "seconds": 157.8,
+      "answer": "Sending a response body in Express.js determines the `Content-Type` and generates an `ETag` through the `res.send` method in `lib/response.js`. Here's how it works:\n\n- **Content-Type Selection**:\n  - If the body is a string, it defaults to `html` with UTF-8 encoding. The method checks the existing `Content-Type` header; if present, it applies a charset (e.g., `utf-8`); otherwise, it sets it to `text/html`.\n  - For non-string bodies (e.g., objects, numbers, buffers), the method checks if the body is a buffer. If so, it sets the `Content-Type` to `bin` (binary) if no type is already set.\n  - The `res.type()` method is used to set the content type, which is a helper that calls `set('Content-Type', ...)`.\n\n  Example:\n  ```js\n  res.type('text/plain').set('ETag', '\"foo\"').send(Buffer.from('hey'))\n  ```\n  This sets the `Content-Type` to `text/plain` and explicitly sets an `ETag`.\n\n- **ETag Generation**:\n  - An `ETag` is generated only if:\n    - No `ETag` header is already set (`!this.get('ETag')`), and\n    - A function `etagFn` is available (from the `etag` middleware or default implementation).\n  - The body is converted to a buffer (if needed), and its length is computed.\n  - The `etag` function (from `etag` package) is then used to generate a hash of the body and its length, which is set as the `ETag` header.\n\n  Example:\n  ```js\n  var etag;\n  if (generateETag && len !== undefined) {\n    etag = etagFn(chunk, len);\n    this.set('ETag', etag);\n  }\n  ```\n\n- **Content-Length**:\n  - The `Content-Length` header is only added if there is no `Transfer-Encoding` header (e.g., not `chunked`).\n  - If `Transfer-Encoding` is set (e.g., `chunked`), `Content-Length` is omitted to avoid header conflicts.\n\nCitations:\n- Content-Type logic: `lib/response.js:136-144`\n- ETag generation: `lib/response.js:187-190`, `lib/response.js:163-178`\n- Transfer-Encoding and Content-Length interaction: `test/res.send.js:604-616`, `lib/response.js:180-184`\n\nThis behavior ensures that the response headers are correctly formed based on the body type and user-defined settings, while respecting HTTP header constraints."
+    }
+  ]
+}

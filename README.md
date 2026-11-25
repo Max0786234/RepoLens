@@ -109,9 +109,19 @@ On *identifier* questions every v2 method scores Span Hit@5 = 1.00 (v1: 0.70); t
 
 ### End-to-end answers
 
-<!-- ANSWER_TABLE -->
+9 questions (the first 3 of each repository), answered end to end and scored automatically:
 
-Reproduce with `repolens eval` (retrieval) and `repolens eval --skip-retrieval --agent --mode agent --limit 3` (answers; needs a model). Raw per-question results are in [`eval/results/`](eval/results).
+| Setup | Correct verified citation | Grounding | Invalid (hallucinated) citations | Avg tool steps | Avg time | Avg tokens |
+|---|---|---|---|---|---|---|
+| Quick mode · `qwen3:4b-instruct` · local CPU laptop | 0.78 | 0.78 | **0** | 1.0 | 331 s | – |
+| **Agent** · `qwen3:4b-instruct` · local CPU laptop | **1.00** | **1.00** | **0** | 1.0 | 164 s | – |
+| **Agent** · `openai/gpt-oss-120b` · Groq free tier | **1.00** | **1.00** | **0** | 3.2 | 90 s | 11k |
+
+- *Correct verified citation*: the answer cites the file that actually answers the question, and the agent was shown those lines. *Grounding*: share of all citations that are verified.
+- No answer in any setup cited a file or line that does not exist. The two Quick-mode misses were answers without any line citation.
+- Groq times are dominated by deliberate pacing to the free tier's 8k tokens/minute limit, not by the model.
+
+Reproduce: `repolens eval` (retrieval), `repolens eval --skip-retrieval --agent --mode agent --limit 3 [--provider groq]` (answers). Model responses are cached, so a re-run costs no tokens. Raw per-question results, answers and token counts are in [`eval/results/`](eval/results).
 
 ## Quick start
 
@@ -145,13 +155,21 @@ repolens ask    ./my-project "..." --json                         # machine-read
 
 ### Using a hosted model
 
-Any OpenAI-compatible endpoint works. In the UI pick a provider and paste a key, or set environment variables:
+Any OpenAI-compatible endpoint works. The quickest is Groq's free tier: put your key in a `.env` file (git-ignored) and pick the preset.
 
 ```bash
-export REPOLENS_LLM_BASE_URL=https://api.groq.com/openai/v1
-export REPOLENS_LLM_MODEL=llama-3.3-70b-versatile
+echo "GROQ_API_KEY=gsk_..." > .env
+repolens ask ./my-project "How is caching implemented?" --provider groq
+REPOLENS_PROVIDER=groq streamlit run app.py      # or choose "Groq" in the sidebar
+```
+
+RepoLens is built to live within free-tier limits: it paces requests from the provider's rate-limit headers, retries 429s after `retry-after`, keeps every request inside a token budget (older tool output is trimmed), uses `reasoning_effort=low` for gpt-oss models, and stops investigating when the model starts repeating itself. Other providers:
+
+```bash
+export REPOLENS_LLM_BASE_URL=https://api.openai.com/v1   # any OpenAI-compatible server
+export REPOLENS_LLM_MODEL=gpt-4.1-mini
 export REPOLENS_LLM_API_KEY=...
-export REPOLENS_EMBED_BACKEND=none   # or sentence-transformers (pip install -e ".[st]")
+export REPOLENS_EMBED_BACKEND=none   # hosted chat without local Ollama: BM25 only, or sentence-transformers
 ```
 
 ### Docker
