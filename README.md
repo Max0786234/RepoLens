@@ -96,15 +96,22 @@ RepoLens ships with a reproducible benchmark: **52 hand-labelled questions** ove
 
 ### Retrieval
 
-<!-- RETRIEVAL_TABLE -->
+| Method | File Hit@1 | File Hit@5 | MRR@10 | Span Hit@5 | Span Hit@5 (paraphrased) |
+|---|---|---|---|---|---|
+| v1 baseline (45-line windows + BM25) | 0.61 | 0.86 | 0.72 | 0.71 | 0.71 |
+| v2 BM25 (code-aware) | 0.79 | 0.94 | 0.84 | 0.89 | 0.86 |
+| v2 vector (`embeddinggemma`) | 0.64 | 0.92 | 0.77 | 0.89 | 0.86 |
+| **v2 hybrid (BM25 + vector, RRF)** | **0.79** | **1.00** | **0.87** | **0.94** | **0.93** |
 
-*Span Hit@5: a top-5 result overlaps the exact lines that answer the question. MRR@10: mean reciprocal rank of the first result from a correct file. Latency is per query on a laptop CPU (v1 re-chunked the whole repository on every query).*
+On *identifier* questions every v2 method scores Span Hit@5 = 1.00 (v1: 0.70); the hybrid's advantage comes from paraphrased questions, where neither keywords nor embeddings alone are enough. v2 BM25 answers a query in **4 ms** vs 128 ms for v1 (which re-chunked the repository on every query); vector and hybrid search add one query embedding (≈5 s on the CPU-only test laptop through Ollama, milliseconds on a GPU or hosted API, cached per query).
+
+*Span Hit@5: a top-5 result overlaps the exact lines that answer the question. File Hit@k: a result from a correct file in the top k. MRR@10: mean reciprocal rank of the first result from a correct file.*
 
 ### End-to-end answers
 
 <!-- ANSWER_TABLE -->
 
-Reproduce with `repolens eval` (retrieval) and `repolens eval --agent --limit 4` (answers; needs a model). Raw per-question results are in [`eval/results/`](eval/results).
+Reproduce with `repolens eval` (retrieval) and `repolens eval --skip-retrieval --agent --mode agent --limit 3` (answers; needs a model). Raw per-question results are in [`eval/results/`](eval/results).
 
 ## Quick start
 
