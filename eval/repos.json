@@ -1,0 +1,17 @@
+{
+  "requests": {
+    "url": "https://github.com/psf/requests",
+    "ref": "3c7baaa05ab4aa49cc819ce3a819d260de19c157",
+    "language": "python"
+  },
+  "flask": {
+    "url": "https://github.com/pallets/flask",
+    "ref": "49943b5a94413a530761350f04e896f76e8d620e",
+    "language": "python"
+  },
+  "express": {
+    "url": "https://github.com/expressjs/express",
+    "ref": "43fca52d28a422c8be48fd489cbd4f2d6152bab6",
+    "language": "javascript"
+  }
+}
