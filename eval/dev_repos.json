@@ -1,0 +1,17 @@
+{
+  "click": {
+    "url": "https://github.com/pallets/click",
+    "ref": "08b803cf32ceb2ae6a772c62d5da42757a897d44",
+    "language": "python"
+  },
+  "commander": {
+    "url": "https://github.com/tj/commander.js",
+    "ref": "a5a7dc084d4d2b7932e85ca049c5204e50a2c721",
+    "language": "javascript"
+  },
+  "cobra": {
+    "url": "https://github.com/spf13/cobra",
+    "ref": "adbc8813901bba65827259daa8e22ff94ec1f30e",
+    "language": "go"
+  }
+}

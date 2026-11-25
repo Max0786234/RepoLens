@@ -52,3 +52,13 @@ def test_benchmark_files_are_well_formed():
 def test_v1_baseline_still_runs(sample_repo):
     results = BaselineV1(sample_repo).search("hash password", top_k=3)
     assert results and all("start_line" in r for r in results)
+
+
+def test_dev_question_set_is_separate_and_well_formed():
+    dev_repos = json.loads((ROOT / "eval" / "dev_repos.json").read_text(encoding="utf-8"))
+    test_repos = json.loads((ROOT / "eval" / "repos.json").read_text(encoding="utf-8"))
+    dev = load_questions(ROOT / "eval" / "dev_questions.jsonl")
+    assert len(dev) >= 15 and len({q.id for q in dev}) == len(dev)
+    assert not set(dev_repos) & set(test_repos)  # tuning never touches the test repositories
+    for q in dev:
+        assert q.repo in dev_repos and q.expected
