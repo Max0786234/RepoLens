@@ -375,6 +375,60 @@ class ToolBox:
             return ToolResult(summary + "\n" + "\n".join(hits), data=dict(files))
 
         @self.register(
+            "find_callers",
+            "Which functions call the given function or method, with the exact call lines. "
+            "Answers 'who uses X?' in one step.",
+            {"name": {"type": "string", "description": "Function or method name, e.g. 'send' or 'Session.send'."}},
+            ["name"],
+        )
+        def find_callers(name: str) -> ToolResult:
+            graph = index.call_graph()
+            sites = graph.callers(str(name))
+            if not sites:
+                return ToolResult(
+                    f"No calls to {name!r} found inside repository functions. Try find_references.", data=[]
+                )
+            lines = []
+            for site in sites[:40]:
+                evidence.add(site.caller.path, site.line, site.line, "find_callers")
+                lines.append(f"{site.caller.path}:{site.line} in {site.caller.qualname}: {site.text}")
+            callers = {(s.caller.path, s.caller.qualname) for s in sites}
+            header = f"{len(sites)} call sites in {len(callers)} functions (matched by name, not type):"
+            more = f"\n... {len(sites) - 40} more" if len(sites) > 40 else ""
+            return ToolResult(header + "\n" + "\n".join(lines) + more, data=[s.caller.qualname for s in sites])
+
+        @self.register(
+            "find_callees",
+            "Which repository functions the given function or method calls, and where they are defined. "
+            "Answers 'what does X do / depend on?' in one step.",
+            {"name": {"type": "string", "description": "Function or method name, e.g. 'resolve_redirects'."}},
+            ["name"],
+        )
+        def find_callees(name: str) -> ToolResult:
+            graph = index.call_graph()
+            definitions = graph.definitions(str(name))
+            if not definitions:
+                return ToolResult(f"No function or method named {name!r}. Try find_symbol.", data=[])
+            blocks = []
+            for definition in definitions[:4]:
+                sites = graph.callees(definition)
+                evidence.add(definition.path, definition.line, definition.line, "find_callees")
+                if not sites:
+                    blocks.append(
+                        f"{definition.qualname} ({definition.path}:{definition.line}) calls no repository functions."
+                    )
+                    continue
+                rows = []
+                for site in sites[:30]:
+                    evidence.add(definition.path, site.line, site.line, "find_callees")
+                    targets = graph.definitions(site.callee_name)[:3]
+                    where = ", ".join(f"{t.path}:{t.line}" for t in targets) or "?"
+                    rows.append(f"  line {site.line}: {site.callee_name}() -> defined at {where}")
+                header = f"{definition.qualname} ({definition.path}:{definition.line}-{definition.end_line}) calls:"
+                blocks.append(header + "\n" + "\n".join(rows))
+            return ToolResult("\n\n".join(blocks), data=[d.qualname for d in definitions])
+
+        @self.register(
             "repo_overview",
             "Summary of the repository: languages, top-level layout, key files and the README start.",
             {},

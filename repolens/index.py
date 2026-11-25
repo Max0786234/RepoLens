@@ -215,6 +215,7 @@ class CodeIndex:
         self.bm25 = BM25(chunks)
         self._line_cache: dict[str, list[str]] = {}
         self._query_vectors: dict[str, np.ndarray] = {}
+        self._call_graph = None
 
     # ------------------------------------------------------------ building
 
@@ -467,6 +468,14 @@ class CodeIndex:
         if len(self._line_cache) < 4_000:
             self._line_cache[resolved] = lines
         return lines
+
+    def call_graph(self):
+        """The repository call graph, built on first use (see ``repolens.callgraph``)."""
+        if self._call_graph is None:
+            from .callgraph import CallGraph
+
+            self._call_graph = CallGraph(self.symbols, self.read_lines)
+        return self._call_graph
 
     # ------------------------------------------------------------ stats
 

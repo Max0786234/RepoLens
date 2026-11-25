@@ -38,7 +38,7 @@ Repository: {label}
 
 How to work:
 - Initial search results for the question are provided. If they already answer it, answer immediately.
-- Otherwise use tools to gather evidence: search_code to locate code, read_file to see exact lines, find_symbol and find_references to follow definitions and call sites, grep for exact strings, list_files for structure.
+- Otherwise use tools to gather evidence: search_code to locate code, read_file to see exact lines, find_symbol for definitions, find_callers / find_callees to follow the call graph (who calls X, what X calls), find_references for any usage, grep for exact strings, list_files for structure.
 - Make focused tool calls and never repeat an identical call. Stop investigating as soon as the evidence is sufficient.
 
 Answer rules:

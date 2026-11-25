@@ -64,7 +64,7 @@ Developers spend more time *finding* the right code than changing it. LLMs can h
 ## Features
 
 - **A conversation, not a search box** — ask follow-ups ("are there tests for it?", "what calls that?"): RepoLens keeps the topic for retrieval and remembers which code it already examined, in the web app and in `repolens chat`.
-- **Agentic investigation** — a tool-calling loop with 7 sandboxed, read-only tools, seeded retrieval, duplicate-call protection and a budget-aware final answer.
+- **Agentic investigation** — a tool-calling loop with 9 sandboxed, read-only tools (including call-graph navigation: who calls X, what X calls), seeded retrieval, duplicate-call protection and a budget-aware final answer.
 - **Citation verification** — each citation is classified ✅ verified (the agent read those lines), ⚠️ unverified (exists but was never inspected) or ❌ invalid (file/lines do not exist).
 - **Hybrid code search** — BM25 with identifier-aware tokenisation and field boosts, plus embeddings, fused with Reciprocal Rank Fusion.
 - **Structure-aware chunking** — functions, classes and methods via Python's `ast`, definition detection for JS/TS, Go, Rust, Java/Kotlin/C#/Swift, C/C++, Ruby and PHP, heading-based Markdown sections; also produces a symbol table.
@@ -90,7 +90,7 @@ flowchart LR
     subgraph Answer
         Q[Question] --> S[Seed search]
         S --> L[Agent loop]
-        L <-->|tool calls| T[search_code · read_file · grep<br/>find_symbol · find_references<br/>list_files · repo_overview]
+        L <-->|tool calls| T[search_code · read_file · grep<br/>find_symbol · find_references<br/>find_callers · find_callees<br/>list_files · repo_overview]
         T --> F
         T --> EV[(Evidence log)]
         L --> ANS[Answer with path:line citations]

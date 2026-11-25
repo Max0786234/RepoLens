@@ -140,7 +140,7 @@ GUIDE = [
     (
         "Investigation steps and retrieved code",
         "Under each answer, **Investigation steps** lists every tool call the agent made (searches, file reads, "
-        "definition lookups) and what it found. **Retrieved code** shows the code passages the answer was built "
+        "definition lookups, who-calls-what queries) and what it found. **Retrieved code** shows the code passages the answer was built "
         "from, with links to GitHub.",
     ),
     (

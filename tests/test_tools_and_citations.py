@@ -69,7 +69,7 @@ def test_tool_errors_never_raise(sample_index):
     assert box.call("read_file", {}).is_error  # missing required argument
     assert box.call("read_file", {"_raw": "{not json"}).is_error
     assert not box.call("read_file", {"path": "shop/cart.py", "start_line": "abc"}).is_error
-    assert len(box.schemas()) == 7
+    assert len(box.schemas()) == 9
 
 
 def test_extract_citations_formats():
@@ -155,3 +155,26 @@ def test_linkify_citations_handles_any_wrapping_and_skips_code():
     assert "missing.py:2" in out and "x/missing.py" not in out
     assert "print('src/a.py:1-3')" in out  # code blocks untouched
     assert out.count("](https://x/src/a.py#L1-L3)") == 1  # no nested links
+
+
+def test_find_callers_and_callees(sample_index):
+    box = make_box(sample_index)
+    callers = box.call("find_callers", {"name": "hash_password"})
+    assert "LoginManager.login" in callers.text  # shop/auth.py calls it inside login()
+    assert box.evidence.covers("shop/auth.py", 19, 19)  # the call line inside login()
+    callees = box.call("find_callees", {"name": "LoginManager.login"})
+    assert "hash_password() -> defined at shop/auth.py:" in callees.text
+    missing = box.call("find_callees", {"name": "does_not_exist"})
+    assert "No function or method" in missing.text
+
+
+def test_call_graph_ignores_strings_comments_and_definition_lines(tmp_path):
+    from repolens.index import CodeIndex
+
+    (tmp_path / "m.py").write_text(
+        "def target():\n    return 1\n\n\ndef user():\n    # target() in a comment\n    s = 'target()'\n    return target()\n",
+        encoding="utf-8",
+    )
+    graph = CodeIndex.build(tmp_path).call_graph()
+    sites = graph.callers("target")
+    assert [(s.caller.qualname, s.line) for s in sites] == [("user", 8)]
