@@ -172,12 +172,17 @@ class ToolBox:
             blocks = []
             for hit in hits:
                 c = hit.chunk
-                evidence.add(c.path, c.start_line, c.end_line, "search_code")
                 label = f" ({c.kind} {c.symbol})" if c.symbol else ""
-                snippet = c.text if len(c.text) <= MAX_SNIPPET_CHARS else c.text[:MAX_SNIPPET_CHARS] + "\n..."
-                lines = snippet.splitlines()
+                lines = c.text.splitlines()
+                truncated = len(c.text) > self.snippet_chars
+                if truncated:
+                    # Keep whole lines only, and record as evidence just the lines actually shown.
+                    lines = c.text[: self.snippet_chars].splitlines()[:-1] or lines[:1]
+                shown_end = c.start_line + len(lines) - 1
+                evidence.add(c.path, c.start_line, shown_end, "search_code")
+                more = f"\n... (chunk continues to line {c.end_line}; use read_file to see more)" if truncated else ""
                 blocks.append(
-                    f"[{hit.rank}] {c.path}:{c.start_line}-{c.end_line}{label}\n{_number(lines, c.start_line)}"
+                    f"[{hit.rank}] {c.path}:{c.start_line}-{c.end_line}{label}\n{_number(lines, c.start_line)}{more}"
                 )
             return ToolResult("\n\n".join(blocks), data=[h.to_dict() for h in hits])
 

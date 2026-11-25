@@ -120,7 +120,9 @@ def run_retrieval(
             source,
             settings,
             semantic=semantic,
-            progress=lambda m, f: print(f"   {m}", flush=True) if f in (0.0, 1.0) else None,
+            progress=lambda m, f: (
+                print(f"   [{f:4.0%}] {m}", flush=True) if ("Embedding" in m or f in (0.0, 1.0)) else None
+            ),
         )
         index = workspace.index
         baseline = BaselineV1(source.root) if "v1" in methods else None
@@ -161,10 +163,10 @@ def run_answers(
     from .rag import answer_question
 
     llm = client_from_settings(settings)
-    selected = questions[:limit] if limit else questions
+    selected = questions
     rows = []
     for repo_name, spec in repos.items():
-        repo_questions = [q for q in selected if q.repo == repo_name]
+        repo_questions = [q for q in selected if q.repo == repo_name][: limit or None]
         if not repo_questions:
             continue
         source = prepare_repo(spec, settings)
@@ -272,7 +274,7 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--no-embeddings", action="store_true", help="Skip vector and hybrid methods")
     parser.add_argument("--agent", action="store_true", help="Also evaluate end-to-end answers (needs a model)")
     parser.add_argument("--mode", choices=["agent", "quick"], default="agent", help="Answer mode for --agent")
-    parser.add_argument("--limit", type=int, help="Evaluate answers on the first N questions only")
+    parser.add_argument("--limit", type=int, help="Evaluate answers on the first N questions of each repository")
     parser.add_argument("--repo", help="Only evaluate one repository")
     parser.add_argument("--output", type=Path, default=EVAL_DIR / "results")
     parser.add_argument("--model", help="Chat model for --agent")

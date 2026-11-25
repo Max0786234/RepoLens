@@ -1,176 +1,223 @@
-# RepoLens — Local AI Codebase Assistant
+# 🔎 RepoLens
 
-RepoLens is a lightweight Python project that helps you ask questions about a codebase using retrieval-first AI. Instead of sending the entire repository to a model blindly, it:
+**An evidence-first AI agent for understanding codebases.** Point it at a repository, ask a question in plain English, and RepoLens investigates the code with tools (search, read, grep, go-to-definition, find-references) before answering. Every `file:line` citation in the answer is then **checked against the code the agent actually read**, so hallucinated references are caught instead of shown to you as facts.
 
-- chunks source files into searchable snippets,
-- retrieves the most relevant code using BM25 and optional embedding search,
-- combines rankings with Reciprocal Rank Fusion (RRF),
-- sends only the relevant evidence to the model,
-- returns answers grounded in real file paths and line ranges.
+[![CI](https://github.com/Max0786234/RepoLens/actions/workflows/ci.yml/badge.svg)](https://github.com/Max0786234/RepoLens/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/python-3.10%E2%80%933.13-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+![Runs locally](https://img.shields.io/badge/runs%20locally-Ollama-black)
 
-This keeps the project simple, explainable, and easy to run locally.
+```text
+$ repolens ask https://github.com/psf/requests "How does requests decide whether to drop the Authorization header on a redirect?"
 
-## What this project is doing
+  -> [auto] search_code(query="How does requests decide whether to drop the Authorization header...", top_k=4)
 
-This project is a small repository assistant for software engineering tasks:
+Requests decides whether to drop the Authorization header when following a redirect by evaluating
+the redirect's origin and destination URLs using the `should_strip_auth` method in
+`src/requests/sessions.py`.
 
-- find the file that implements a feature,
-- answer questions about code structure,
-- inspect logic in a repo without reading everything manually,
-- work with uploaded ZIPs or local source folders,
-- answer with evidence, not vague guesses.
+The method checks if the hostname of the old URL (the original request) differs from the hostname
+of the new URL (the redirect destination). If the hostnames are different, it returns `True`,
+meaning the Authorization header should be stripped. This prevents credential leakage when
+redirecting to a different domain.
 
-The main idea is: retrieval quality matters more than raw model size for local code-analysis workflows.
+Additionally, there is a special case for HTTP-to-HTTPS redirects when using standard ports ...
+This logic is defined in `src/requests/sessions.py:154-184` ...
 
-## Why we used Llama locally
+Grounding: 1/1 citations verified
+  [ok] src/requests/sessions.py:154-184
+```
 
-We used Llama through Ollama because it is a strong fit for this type of project:
+<sub>Real output from `qwen3:4b-instruct` running locally on a CPU-only laptop via Ollama (abridged).</sub>
 
-- local and private: no secret API key required for local use,
-- fast to prototype: easy to run on a dev machine,
-- low friction: works well for learning and testing retrieval ideas,
-- cheaper for development: no cloud billing while experimenting,
-- practical for codebase Q&A: the model is not the main bottleneck; good retrieval is.
+<!-- TODO(owner): add docs/demo.gif — a 20-second capture of the Streamlit UI answering a question. -->
 
-In other words, the real value here is the retrieval pipeline and evidence grounding, not just the LLM vendor. Local Llama is a good default for research, demos, and local validation.
+---
 
-The app is configured to work with:
+## Why this project
 
-- Ollama base URL: `http://localhost:11434/v1`
-- model: `llama3.2:latest`
+Developers spend more time *finding* the right code than changing it. LLMs can help, but they confidently cite files and functions that do not exist. RepoLens is built around three ideas:
 
-This means you can run the app locally without OpenAI credentials when using Ollama.
+1. **Retrieval quality matters more than model size.** Structure-aware chunking and hybrid search let a 4B-parameter local model answer real questions about real repositories.
+2. **Agents should investigate, not guess.** The model gets read-only tools and a step budget, and must gather evidence before answering.
+3. **Grounding should be measured, not promised.** Citations are verified against an evidence log, and the whole pipeline is benchmarked on labelled questions against the original v1 implementation.
 
 ## Features
 
-- local code indexing from files or uploaded ZIPs,
-- BM25 keyword search,
-- optional semantic embeddings via `sentence-transformers`,
-- RRF fusion between lexical and semantic rankings,
-- evidence display with file paths and line ranges,
-- Streamlit web UI for chat-based repository Q&A,
-- agent-style tool usage in `agent.py` for CLI-based code exploration.
+- **Agentic investigation** — a tool-calling loop with 7 sandboxed, read-only tools, seeded retrieval, duplicate-call protection and a budget-aware final answer.
+- **Citation verification** — each citation is classified ✅ verified (the agent read those lines), ⚠️ unverified (exists but was never inspected) or ❌ invalid (file/lines do not exist).
+- **Hybrid code search** — BM25 with identifier-aware tokenisation and field boosts, plus embeddings, fused with Reciprocal Rank Fusion.
+- **Structure-aware chunking** — functions, classes and methods via Python's `ast`, definition detection for JS/TS, Go, Rust, Java/Kotlin/C#/Swift, C/C++, Ruby and PHP, heading-based Markdown sections; also produces a symbol table.
+- **Any source** — public GitHub URL (branch/commit aware, no `git` needed), ZIP or file upload, local folder; extraction is zip-slip and zip-bomb safe.
+- **Local-first, provider-agnostic** — runs fully offline with Ollama; any OpenAI-compatible API (OpenAI, Groq, Anthropic, OpenRouter, vLLM, …) is a configuration change.
+- **Fast after the first run** — the index is persisted and reused until files change; embeddings are cached per chunk, so editing one file re-embeds only its chunks.
+- **Three ways to use it** — Streamlit web app, a CLI with JSON output, and a Python API.
 
-## Project structure
+## Architecture
 
-```text
-.
-├── README.md
-├── requirements.txt
-├── app.py
-├── agent.py
-├── retriever.py
-├── test_agent.py
-├── .gitignore
-└── .venv/                # local virtual environment, not committed
+```mermaid
+flowchart LR
+    subgraph Ingest
+        A[GitHub URL / ZIP / folder] --> B[Safe extraction]
+        B --> C[Structure-aware chunking<br/>+ symbol table]
+    end
+    subgraph Index
+        C --> D[BM25<br/>identifier tokens, field boosts]
+        C --> E[Embeddings<br/>cached per chunk]
+        D --> F{RRF fusion}
+        E --> F
+    end
+    subgraph Answer
+        Q[Question] --> S[Seed search]
+        S --> L[Agent loop]
+        L <-->|tool calls| T[search_code · read_file · grep<br/>find_symbol · find_references<br/>list_files · repo_overview]
+        T --> F
+        T --> EV[(Evidence log)]
+        L --> ANS[Answer with path:line citations]
+        ANS --> V[Citation verifier]
+        EV --> V
+    end
+    V --> UI[Streamlit UI / CLI / JSON]
 ```
 
-Important note: the local ZIP used for testing is intentionally not committed to GitHub. It stays on your machine for validation and is ignored by Git.
+**How a question is answered (agent mode):**
+
+1. **Seed** — hybrid search runs on the question *before* the model's first turn, so even small models start from evidence.
+2. **Investigate** — the model calls tools (up to a step budget). Errors are returned as text the model can recover from; repeated identical calls are short-circuited.
+3. **Answer** — when the model stops calling tools (or the budget is exhausted) it answers from the gathered evidence with `path:start-end` citations.
+4. **Verify** — citations are parsed and checked against every line range the tools showed the model.
+
+**Quick mode** does one retrieval and one streamed answer — much faster on CPU-only machines. **Search mode** needs no LLM at all.
+
+## Benchmark
+
+RepoLens ships with a reproducible benchmark: **52 hand-labelled questions** over three popular repositories pinned to exact commits — [psf/requests](https://github.com/psf/requests), [pallets/flask](https://github.com/pallets/flask) and [expressjs/express](https://github.com/expressjs/express) (JavaScript). Each question has the file and line range that answers it. Questions are tagged *identifier* (names the function) or *natural* (paraphrased, no identifier given), and the **original v1 retriever is kept as a baseline**.
+
+### Retrieval
+
+<!-- RETRIEVAL_TABLE -->
+
+*Span Hit@5: a top-5 result overlaps the exact lines that answer the question. MRR@10: mean reciprocal rank of the first result from a correct file. Latency is per query on a laptop CPU (v1 re-chunked the whole repository on every query).*
+
+### End-to-end answers
+
+<!-- ANSWER_TABLE -->
+
+Reproduce with `repolens eval` (retrieval) and `repolens eval --agent --limit 4` (answers; needs a model). Raw per-question results are in [`eval/results/`](eval/results).
 
 ## Quick start
 
-### 1) Create a virtual environment
+**Requirements:** Python 3.10+ and, for answers, [Ollama](https://ollama.com) (or an API key for a hosted provider).
 
 ```bash
+git clone https://github.com/Max0786234/RepoLens.git
+cd RepoLens
 python -m venv .venv
+source .venv/bin/activate            # Windows: .venv\Scripts\activate
+pip install -e ".[app]"
+
+ollama pull qwen3:4b-instruct        # chat model with tool calling
+ollama pull embeddinggemma           # embeddings for semantic search (optional)
+
+streamlit run app.py                 # http://localhost:8501
 ```
 
-On Windows PowerShell:
+No model? Choose **Search only** in the sidebar — retrieval works without any LLM.
 
-```powershell
-.\.venv\Scripts\Activate.ps1
-```
-
-### 2) Install dependencies
+### CLI
 
 ```bash
-pip install -r requirements.txt
+repolens index  https://github.com/pallets/flask                 # build + cache the index
+repolens search ./my-project "where are JWT tokens validated" --show-code
+repolens ask    ./my-project "How does the payment retry logic work?" --trace
+repolens ask    ./my-project "Summarise the data model" --mode quick
+repolens ask    ./my-project "..." --json                         # machine-readable result + trace
 ```
 
-### 3) Start Ollama and pull the model
+### Using a hosted model
+
+Any OpenAI-compatible endpoint works. In the UI pick a provider and paste a key, or set environment variables:
 
 ```bash
-ollama pull llama3.2:latest
+export REPOLENS_LLM_BASE_URL=https://api.groq.com/openai/v1
+export REPOLENS_LLM_MODEL=llama-3.3-70b-versatile
+export REPOLENS_LLM_API_KEY=...
+export REPOLENS_EMBED_BACKEND=none   # or sentence-transformers (pip install -e ".[st]")
 ```
 
-Then make sure Ollama is running locally.
-
-### 4) Run the Streamlit app
+### Docker
 
 ```bash
-streamlit run app.py
+docker compose up -d                                            # RepoLens + Ollama
+docker compose exec ollama ollama pull qwen3:4b-instruct
+docker compose exec ollama ollama pull embeddinggemma
 ```
 
-Open the local URL shown in the terminal, usually:
+## Python API
+
+```python
+from repolens.config import Settings
+from repolens.workspace import open_workspace
+from repolens.agent import Agent
+from repolens.llm import client_from_settings
+
+settings = Settings.from_env()
+ws = open_workspace("https://github.com/psf/requests", settings)
+result = Agent(ws.index, client_from_settings(settings), label=ws.source.label).ask(
+    "Where are connection retries configured?"
+)
+print(result.answer)
+print(result.grounding.label)  # e.g. "2/2 citations verified"
+```
+
+## Design decisions
+
+| Decision | Why |
+|---|---|
+| Seed the agent with a search before its first turn | Small local models often skip tool use; starting from evidence makes answers grounded even when they do. |
+| Verify citations against an evidence log | Turns "grounded answers" into a number you can see on every response and measure in the benchmark. |
+| Chunk by definitions, not fixed windows | Fixed windows split functions in half; definition chunks carry a symbol name that both BM25 and the agent use. |
+| BM25 + embeddings with RRF | Lexical search nails identifiers, embeddings handle paraphrases; RRF fuses ranks without calibrating two unrelated score scales. |
+| Native Ollama API | Ollama's OpenAI-compatible endpoint cannot set the context window and silently truncates the start of long conversations — including the system prompt. |
+| Tolerate tool calls written as text | Some models (e.g. qwen2.5-coder) emit tool calls as JSON in the message; they are recovered only when the name matches a real tool. |
+| No LLM framework | The goal is to show — and control — the mechanics: ~3.8k lines of Python, one runtime dependency (`numpy`). |
+| Read-only, index-scoped tools | The agent can only read files that are in the index: no secrets (`.env`, keys), no dependencies, nothing outside the repository, no execution. |
+
+## Limitations
+
+- On CPU-only machines local models are slow (an agent answer can take minutes); Quick mode or a hosted model is far faster.
+- Non-Python languages use regex-based definition detection, which can miss unusual syntax (tree-sitter would be more precise).
+- "Verified" means the agent *saw* the cited lines — it does not prove the claim about them is correct.
+- The benchmark is small (52 questions) and was labelled by the author; treat it as a regression suite and a sanity check, not a leaderboard.
+
+## Project layout
 
 ```text
-http://localhost:8501
+repolens/            core package
+  agent.py           tool-calling investigation loop
+  tools.py           sandboxed tools + evidence log
+  citations.py       citation extraction and verification
+  index.py           code index: BM25, embeddings, RRF, persistence
+  chunking.py        structure-aware chunking and symbols
+  ingest.py          GitHub / ZIP / upload ingestion
+  llm.py             OpenAI-compatible + native Ollama clients
+  rag.py             quick single-shot answers
+  evaluation.py      benchmark harness  (baseline_v1.py = frozen v1 retriever)
+  cli.py             `repolens` command
+app.py               Streamlit UI
+eval/                benchmark repos, questions and results
+tests/               pytest suite (no network or model needed)
 ```
 
-### 5) Upload a project or ZIP and ask a question
-
-Examples:
-
-- “Where is the binary search implementation?”
-- “Show the two_sum function”
-- “Which file contains the Fibonacci logic?”
-- “Explain the login flow in this codebase”
-
-## CLI agent mode
-
-You can also run the non-UI tool-based agent:
+## Development
 
 ```bash
-python agent.py "Where is the tool registry?" --demo --trace
+pip install -e ".[dev]"
+pytest -q                       # unit + Streamlit AppTest smoke tests
+ruff check . && ruff format --check .
 ```
 
-This is useful for testing the agent loop and report generation without the web interface.
 
-## Retrieval internals
+## License
 
-The core retrieval file is `retriever.py`.
-
-It does the following:
-
-1. splits code into chunks,
-2. indexes file paths and content,
-3. computes BM25 score for keyword matches,
-4. optionally computes embedding similarity,
-5. combines rankings with RRF.
-
-This means the model sees the most relevant code chunks instead of the full repository dump.
-
-## Testing
-
-Run the unit tests with:
-
-```bash
-python -m unittest -v test_agent.py
-```
-
-The tests cover:
-
-- tool contract safety,
-- file access restrictions,
-- BM25 retrieval,
-- RRF fusion,
-- README/code ranking behavior,
-- prompt trimming for model context limits.
-
-## GitHub hygiene
-
-The repository is intentionally kept clean for GitHub:
-
-- source files are committed,
-- local environment files are excluded,
-- temporary test ZIPs are excluded,
-- no large local artifacts are pushed to GitHub.
-
-This keeps the GitHub repo focused on the actual project and makes it easier for others to clone and run.
-
-## Notes
-
-- Semantic mode is optional and requires the dependencies in `requirements.txt`.
-- The app accepts uploaded ZIPs and local files, but it is designed for safe, local-only workflows.
-- Do not upload secrets or private data unless you are sure you have permission to do so.
-- The evaluation ZIP used in testing is kept on your local machine and intentionally not published to GitHub.
+[MIT](LICENSE)

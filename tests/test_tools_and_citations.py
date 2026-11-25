@@ -107,3 +107,13 @@ def test_citation_with_shortened_path_resolves(sample_index):
     report = verify_citations("In auth.py:6-8 the hash is computed.", sample_index, evidence)
     assert report.citations[0].status == "verified"
     assert report.citations[0].resolved_path == "shop/auth.py"
+
+
+def test_truncated_search_snippets_only_count_shown_lines_as_evidence(sample_index):
+    box = ToolBox(sample_index, EvidenceLog(), snippet_chars=60)
+    result = box.call("search_code", {"query": "LoginManager login logout", "top_k": 1})
+    chunk_range = next(r for r in box.evidence.ranges)
+    assert "chunk continues to line" in result.text
+    assert chunk_range.end_line - chunk_range.start_line + 1 == len(
+        [line for line in result.text.splitlines() if " | " in line]
+    )
