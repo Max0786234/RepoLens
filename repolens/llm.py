@@ -510,6 +510,9 @@ def model_options(model: str, reasoning_effort: str | None = "low") -> dict[str,
     """
     if "gpt-oss" in model and reasoning_effort:
         return {"reasoning_effort": reasoning_effort}
+    if "qwen3" in model.lower() and reasoning_effort:
+        # Hosted Qwen3 accepts "none" | "default"; "low" (our frugal default) maps to no hidden thinking.
+        return {"reasoning_effort": "none" if reasoning_effort in {"low", "none"} else "default"}
     return {}
 
 

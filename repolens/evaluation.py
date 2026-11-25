@@ -334,7 +334,8 @@ def main(args: argparse.Namespace) -> int:
         print(f"\n== Answer evaluation ({args.mode}, {settings.llm_model})", flush=True)
         answers = run_answers(questions, repos, settings, args.mode, args.limit, semantic, not args.no_cache)
         table = answers_markdown(answers)
-        stem = f"answers-{settings.provider}-{args.mode}"
+        model_slug = settings.llm_model.split("/")[-1].replace(":", "-")
+        stem = f"answers-{settings.provider}-{model_slug}-{args.mode}"
         (args.output / f"{stem}.json").write_text(json.dumps(answers, indent=2), encoding="utf-8")
         (args.output / f"{stem}.md").write_text(table + "\n", encoding="utf-8")
         print("\n" + table)

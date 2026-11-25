@@ -187,3 +187,12 @@ def test_groq_output_parse_failed_maps_to_recoverable_error(monkeypatch):
     with pytest.raises(ToolCallParseError) as info:
         OpenAICompatibleClient("https://api.groq.com/openai/v1", "m", "key").chat([])
     assert info.value.failed_generation == "We need..."
+
+
+def test_model_options_for_reasoning_models():
+    from repolens.llm import model_options
+
+    assert model_options("openai/gpt-oss-120b") == {"reasoning_effort": "low"}
+    assert model_options("qwen/qwen3.8-27b") == {"reasoning_effort": "none"}
+    assert model_options("qwen/qwen3.8-27b", "high") == {"reasoning_effort": "default"}
+    assert model_options("llama-3.3-70b") == {}
