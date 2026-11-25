@@ -33,6 +33,8 @@ def _print(text: str = "", **kwargs) -> None:
 
 def _settings(args: argparse.Namespace) -> Settings:
     settings = Settings.from_env()
+    if getattr(args, "provider", None):
+        settings.apply_provider(args.provider)
     if getattr(args, "model", None):
         settings.llm_model = args.model
     if getattr(args, "base_url", None):
@@ -127,7 +129,7 @@ def cmd_ask(args) -> int:
             _print()
         started = time.perf_counter()
         try:
-            for piece in stream_answer(llm, workspace.index, rag):
+            for piece in stream_answer(llm, workspace.index, rag, max_context_tokens=settings.llm_max_context_tokens):
                 if not args.json:
                     print(piece, end="", flush=True)
         except LLMError as exc:
@@ -150,7 +152,7 @@ def cmd_ask(args) -> int:
             _print(f"\n({time.perf_counter() - started:.1f}s)")
         return 0
 
-    agent = Agent(workspace.index, llm, AgentConfig(max_steps=settings.max_agent_steps), label=workspace.source.label)
+    agent = Agent(workspace.index, llm, AgentConfig.from_settings(settings), label=workspace.source.label)
     result = None
     for event in agent.run(args.question):
         if event.kind == "answer":
@@ -182,7 +184,7 @@ def cmd_chat(args) -> int:
     settings = _settings(args)
     workspace = _open(args, settings)
     llm = client_from_settings(settings)
-    agent = Agent(workspace.index, llm, AgentConfig(max_steps=settings.max_agent_steps), label=workspace.source.label)
+    agent = Agent(workspace.index, llm, AgentConfig.from_settings(settings), label=workspace.source.label)
     history: list[dict[str, str]] = []
     memory = ConversationMemory()
     stats = workspace.index.stats()
@@ -211,7 +213,7 @@ def cmd_chat(args) -> int:
             rag = retrieve(workspace.index, question, top_k=args.top_k, history=history)
             print("\nrepolens> ", end="", flush=True)
             try:
-                for piece in stream_answer(llm, workspace.index, rag, history, memory):
+                for piece in stream_answer(llm, workspace.index, rag, history, memory, settings.llm_max_context_tokens):
                     print(piece, end="", flush=True)
             except LLMError as exc:
                 _print(f"\nError: {exc}\n")
@@ -269,6 +271,7 @@ def build_parser() -> argparse.ArgumentParser:
     common(p)
     p.add_argument("question")
     p.add_argument("--mode", choices=["agent", "quick"], default="agent")
+    p.add_argument("--provider", choices=["ollama", "groq", "openai", "anthropic"], help="Use a provider preset")
     p.add_argument("--model", help="Chat model (default from REPOLENS_LLM_MODEL)")
     p.add_argument("--base-url", help="OpenAI-compatible base URL (default: local Ollama)")
     p.add_argument("--api-key", help="API key for hosted providers")
@@ -280,6 +283,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("chat", help="Interactive conversation about a repository")
     common(p)
     p.add_argument("--mode", choices=["agent", "quick"], default="agent")
+    p.add_argument("--provider", choices=["ollama", "groq", "openai", "anthropic"], help="Use a provider preset")
     p.add_argument("--model", help="Chat model (default from REPOLENS_LLM_MODEL)")
     p.add_argument("--base-url", help="OpenAI-compatible base URL (default: local Ollama)")
     p.add_argument("--api-key", help="API key for hosted providers")

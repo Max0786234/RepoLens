@@ -72,10 +72,23 @@ def retrieve(index: CodeIndex, question: str, top_k: int = 6, method: str = "aut
 
 
 def stream_answer(
-    llm, index: CodeIndex, rag: RagAnswer, history=None, memory: ConversationMemory | None = None
+    llm,
+    index: CodeIndex,
+    rag: RagAnswer,
+    history=None,
+    memory: ConversationMemory | None = None,
+    max_context_tokens: int | None = None,
 ) -> Iterator[str]:
-    """Stream answer text; fills ``rag.answer`` and ``rag.grounding`` when done."""
-    messages = build_messages(rag.question, build_context(rag.hits), history)
+    """Stream answer text; fills ``rag.answer`` and ``rag.grounding`` when done.
+
+    ``max_context_tokens`` shrinks the excerpt budget for rate-limited providers.
+    """
+    max_chars = MAX_CONTEXT_CHARS
+    if max_context_tokens:
+        # ~3 characters per token, minus room for the prompt, history and the question.
+        max_chars = max(2_000, min(MAX_CONTEXT_CHARS, (max_context_tokens - 1_200) * 3))
+        history = (history or [])[-2:]
+    messages = build_messages(rag.question, build_context(rag.hits, max_chars), history)
     pieces: list[str] = []
     if hasattr(llm, "stream"):
         for piece in llm.stream(messages):
@@ -91,9 +104,15 @@ def stream_answer(
 
 
 def answer_question(
-    llm, index: CodeIndex, question: str, top_k: int = 6, method: str = "auto", history=None
+    llm,
+    index: CodeIndex,
+    question: str,
+    top_k: int = 6,
+    method: str = "auto",
+    history=None,
+    max_context_tokens: int | None = None,
 ) -> RagAnswer:
     rag = retrieve(index, question, top_k, method, history)
-    for _ in stream_answer(llm, index, rag, history):
+    for _ in stream_answer(llm, index, rag, history, max_context_tokens=max_context_tokens):
         pass
     return rag

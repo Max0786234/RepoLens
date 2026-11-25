@@ -28,7 +28,7 @@ from typing import Any
 from .citations import GroundingReport, verify_citations
 from .conversation import ConversationMemory, contextual_query
 from .index import CodeIndex
-from .llm import ChatClient, ChatResponse, LLMError
+from .llm import ChatClient, ChatResponse, LLMError, estimate_tokens
 from .tools import EvidenceLog, ToolBox, overview_text, tool_call_summary
 
 SYSTEM_PROMPT = """You are RepoLens, a senior software engineer who answers questions about a code repository by investigating its source code.
@@ -61,6 +61,49 @@ class AgentConfig:
     max_calls_per_step: int = 4
     temperature: float = 0.1
     history_turns: int = 3
+    # Largest prompt (messages + tool schemas, estimated tokens) sent in one call.
+    # ``None`` = unlimited (local models). Free hosted tiers need a budget.
+    max_context_tokens: int | None = None
+
+    @classmethod
+    def from_settings(cls, settings, **overrides) -> AgentConfig:
+        values = {"max_steps": settings.max_agent_steps, "max_context_tokens": settings.llm_max_context_tokens}
+        values.update(overrides)
+        return cls(**values)
+
+
+TRIMMED_NOTE = "\n[... older tool output trimmed to fit the context budget; call the tool again if needed]"
+
+
+def fit_context(messages: list[dict[str, Any]], tools: list[dict[str, Any]] | None, budget: int | None) -> int:
+    """Shrink the oldest tool outputs until the request fits ``budget`` tokens.
+
+    The system prompt, the question and the most recent tool result are kept.
+    Returns the number of messages that were trimmed.
+    """
+    if not budget:
+        return 0
+    fixed = estimate_tokens(tools) if tools else 0
+    trimmed = 0
+
+    def total() -> int:
+        return fixed + sum(estimate_tokens(m.get("content") or "") + 8 for m in messages)
+
+    candidates = [i for i, m in enumerate(messages) if m["role"] == "tool"][:-1]
+    # The seed results live in the first user message; they are the last resort.
+    first_user = next((i for i, m in enumerate(messages) if m["role"] == "user" and "Initial search" in (m.get("content") or "")), None)  # fmt: skip
+    if first_user is not None:
+        candidates.append(first_user)
+    for i in candidates:
+        if total() <= budget:
+            break
+        content = messages[i].get("content") or ""
+        if content.endswith(TRIMMED_NOTE) or len(content) < 600:
+            continue
+        keep = 400 if messages[i]["role"] == "tool" else 1_200
+        messages[i] = {**messages[i], "content": content[:keep] + TRIMMED_NOTE}
+        trimmed += 1
+    return trimmed
 
 
 @dataclass
@@ -195,6 +238,8 @@ class Agent:
         try:
             for step in range(1, self.config.max_steps + 1):
                 yield emit(AgentEvent("status", step, "Thinking..."))
+                if fit_context(messages, schemas, self.config.max_context_tokens):
+                    yield emit(AgentEvent("status", step, "Trimmed older tool output to fit the token budget"))
                 response = self.llm.chat(messages, tools=schemas, temperature=self.config.temperature)
                 add_usage(response)
                 if not response.tool_calls:
@@ -239,6 +284,7 @@ class Agent:
                 stop_reason = "budget"
                 yield emit(AgentEvent("status", step, "Writing the final answer..."))
                 messages.append({"role": "user", "content": FINAL_ANSWER_PROMPT})
+                fit_context(messages, None, self.config.max_context_tokens)
                 response = self.llm.chat(messages, tools=None, temperature=self.config.temperature)
                 add_usage(response)
                 answer = response.content.strip() or "I could not produce an answer from the gathered evidence."

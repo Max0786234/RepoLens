@@ -14,13 +14,16 @@ normalises the common failure modes so the agent loop does not have to:
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
+import time
 import urllib.error
 import urllib.request
 import uuid
 from collections.abc import Iterator
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Protocol
 
 
@@ -151,6 +154,77 @@ def _is_local(url: str) -> bool:
     return any(host in url for host in ("localhost", "127.0.0.1", "0.0.0.0", "host.docker.internal"))
 
 
+_DURATION_RE = re.compile(r"(\d+(?:\.\d+)?)(ms|h|m|s)")
+
+
+def parse_duration(value: str | None) -> float | None:
+    """Parse rate-limit reset values such as ``"7.66s"``, ``"1m2.5s"``, ``"120ms"`` or ``"12"``."""
+    if not value:
+        return None
+    value = value.strip()
+    try:
+        return float(value)
+    except ValueError:
+        pass
+    parts = _DURATION_RE.findall(value)
+    if not parts:
+        return None
+    scale = {"h": 3600.0, "m": 60.0, "s": 1.0, "ms": 0.001}
+    return sum(float(number) * scale[unit] for number, unit in parts)
+
+
+def estimate_tokens(payload: Any) -> int:
+    """Cheap, deliberately pessimistic token estimate (~3 characters per token for code/JSON)."""
+    text = payload if isinstance(payload, str) else json.dumps(payload, ensure_ascii=False)
+    return len(text) // 3 + 1
+
+
+class RateLimiter:
+    """Pace requests using the provider's ``x-ratelimit-*`` headers.
+
+    Free tiers (e.g. Groq) limit tokens per minute. Instead of firing a request
+    that will be rejected, wait until the token window resets. Waits longer than
+    ``max_wait`` (a daily quota, typically) raise an :class:`LLMError` instead.
+    """
+
+    def __init__(self, max_wait: float = 90.0, sleep=time.sleep, clock=time.monotonic) -> None:
+        self.max_wait = max_wait
+        self.sleep = sleep
+        self.clock = clock
+        self.remaining_tokens: int | None = None
+        self.reset_at: float | None = None
+        self.on_wait: Any = None  # optional callback(seconds, reason) for UIs
+
+    def update(self, headers) -> None:
+        if headers is None:
+            return
+        remaining = headers.get("x-ratelimit-remaining-tokens")
+        reset = parse_duration(headers.get("x-ratelimit-reset-tokens"))
+        if remaining is not None:
+            try:
+                self.remaining_tokens = int(float(remaining))
+            except ValueError:
+                self.remaining_tokens = None
+        if reset is not None:
+            self.reset_at = self.clock() + reset
+
+    def wait(self, seconds: float, reason: str) -> None:
+        if seconds > self.max_wait:
+            raise LLMError(f"{reason} The limit resets in about {seconds / 60:.0f} minutes.")
+        if self.on_wait:
+            self.on_wait(seconds, reason)
+        self.sleep(seconds)
+
+    def before_request(self, estimated_tokens: int) -> None:
+        if self.remaining_tokens is None or self.reset_at is None:
+            return
+        if estimated_tokens > self.remaining_tokens:
+            pause = self.reset_at - self.clock()
+            if pause > 0:
+                self.wait(pause + 0.5, "Pausing for the provider's tokens-per-minute limit.")
+            self.remaining_tokens = None
+
+
 class OpenAICompatibleClient:
     def __init__(
         self,
@@ -159,6 +233,9 @@ class OpenAICompatibleClient:
         api_key: str | None = None,
         timeout: float = 300.0,
         extra_body: dict[str, Any] | None = None,
+        max_tokens: int | None = None,
+        max_retries: int = 3,
+        max_wait: float = 90.0,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         if self.base_url.endswith("/chat/completions"):
@@ -167,6 +244,9 @@ class OpenAICompatibleClient:
         self.api_key = api_key
         self.timeout = timeout
         self.extra_body = extra_body or {}
+        self.max_tokens = max_tokens
+        self.max_retries = max_retries
+        self.limiter = RateLimiter(max_wait=max_wait)
 
     # ------------------------------------------------------------ transport
 
@@ -183,25 +263,51 @@ class OpenAICompatibleClient:
 
     def _open(self, path: str, body: dict[str, Any] | None = None, timeout: float | None = None):
         data = json.dumps(body).encode() if body is not None else None
-        request = urllib.request.Request(
-            f"{self.base_url}{path}", data=data, headers=self._headers(), method="POST" if data else "GET"
-        )
-        try:
-            return urllib.request.urlopen(request, timeout=timeout or self.timeout)
-        except urllib.error.HTTPError as exc:
-            detail = exc.read().decode(errors="replace")[:500]
-            if exc.code == 401:
-                raise LLMError("The model server rejected the API key (401)." + self._hint()) from exc
-            if exc.code == 404:
-                raise LLMError(f"Model or endpoint not found (404): {detail}." + self._hint()) from exc
-            if exc.code == 429:
-                raise LLMError("Rate limited by the model provider (429). Wait a moment and retry.") from exc
-            raise LLMError(f"Model request failed ({exc.code}): {detail}") from exc
-        except (urllib.error.URLError, ConnectionError) as exc:
-            reason = getattr(exc, "reason", exc)
-            raise LLMError(f"Could not reach the model server at {self.base_url} ({reason})." + self._hint()) from exc
-        except TimeoutError as exc:
-            raise LLMError(f"The model did not respond within {self.timeout:.0f}s.") from exc
+        if data is not None:
+            self.limiter.before_request(len(data) // 3 + int((body or {}).get("max_tokens") or 1000))
+        for attempt in range(self.max_retries + 1):
+            request = urllib.request.Request(
+                f"{self.base_url}{path}", data=data, headers=self._headers(), method="POST" if data else "GET"
+            )
+            try:
+                response = urllib.request.urlopen(request, timeout=timeout or self.timeout)
+                self.limiter.update(getattr(response, "headers", None))
+                return response
+            except urllib.error.HTTPError as exc:
+                detail = exc.read().decode(errors="replace")[:500]
+                if exc.code == 401:
+                    raise LLMError("The model server rejected the API key (401)." + self._hint()) from exc
+                if exc.code == 404:
+                    raise LLMError(f"Model or endpoint not found (404): {detail}." + self._hint()) from exc
+                if exc.code == 413:
+                    raise LLMError(
+                        "The request is larger than the provider allows (413). Lower the context budget "
+                        "(REPOLENS_MAX_CONTEXT_TOKENS) or ask a narrower question."
+                    ) from exc
+                if exc.code == 429:
+                    headers = exc.headers or {}
+                    wait = parse_duration(headers.get("retry-after")) or parse_duration(
+                        headers.get("x-ratelimit-reset-tokens")
+                    )
+                    daily = "per day" in detail.lower() or "(rpd)" in detail.lower() or "(tpd)" in detail.lower()
+                    if daily:
+                        raise LLMError(f"Daily free-tier quota reached for {self.model}. {detail[:200]}") from exc
+                    if attempt < self.max_retries:
+                        self.limiter.wait((wait or 2.0 * (attempt + 1)) + 0.5, "Rate limited (429), retrying.")
+                        continue
+                    raise LLMError("Rate limited by the model provider (429). Wait a moment and retry.") from exc
+                if exc.code >= 500 and attempt < self.max_retries:
+                    self.limiter.wait(2.0 * (attempt + 1), f"Provider error {exc.code}, retrying.")
+                    continue
+                raise LLMError(f"Model request failed ({exc.code}): {detail}") from exc
+            except (urllib.error.URLError, ConnectionError) as exc:
+                reason = getattr(exc, "reason", exc)
+                raise LLMError(
+                    f"Could not reach the model server at {self.base_url} ({reason})." + self._hint()
+                ) from exc
+            except TimeoutError as exc:
+                raise LLMError(f"The model did not respond within {self.timeout:.0f}s.") from exc
+        raise LLMError("Model request failed after retries.")  # pragma: no cover - loop always returns/raises
 
     # ------------------------------------------------------------ API
 
@@ -214,6 +320,8 @@ class OpenAICompatibleClient:
         body: dict[str, Any] = {"model": self.model, "messages": messages, "temperature": temperature, "stream": False}
         if tools:
             body["tools"] = tools
+        if self.max_tokens:
+            body["max_tokens"] = self.max_tokens
         body.update(self.extra_body)
         with self._open("/chat/completions", body) as response:
             try:
@@ -225,7 +333,9 @@ class OpenAICompatibleClient:
 
     def stream(self, messages: list[dict[str, Any]], temperature: float = 0.1) -> Iterator[str]:
         """Yield answer text as it is generated (server-sent events)."""
-        body = {"model": self.model, "messages": messages, "temperature": temperature, "stream": True}
+        body: dict[str, Any] = {"model": self.model, "messages": messages, "temperature": temperature, "stream": True}
+        if self.max_tokens:
+            body["max_tokens"] = self.max_tokens
         body.update(self.extra_body)
         in_think = False
         with self._open("/chat/completions", body) as response:
@@ -371,23 +481,106 @@ def looks_like_ollama(base_url: str) -> bool:
     return ":11434" in base_url or "ollama" in base_url.lower()
 
 
+def model_options(model: str, reasoning_effort: str | None = "low") -> dict[str, Any]:
+    """Provider/model-specific request fields that save tokens.
+
+    gpt-oss models are reasoning models; ``reasoning_effort=low`` keeps hidden
+    reasoning short, which matters on token-limited free tiers.
+    """
+    if "gpt-oss" in model and reasoning_effort:
+        return {"reasoning_effort": reasoning_effort}
+    return {}
+
+
 def make_chat_client(
     base_url: str,
     model: str,
     api_key: str | None = None,
     timeout: float = 600.0,
     num_ctx: int = 12_288,
+    max_tokens: int | None = None,
+    reasoning_effort: str | None = "low",
 ) -> ChatClient:
     """Pick the native Ollama client for Ollama URLs, the OpenAI-compatible one otherwise."""
     if looks_like_ollama(base_url) and not api_key:
         return OllamaClient(base_url, model, timeout=timeout, num_ctx=num_ctx)
-    return OpenAICompatibleClient(base_url, model, api_key, timeout)
+    return OpenAICompatibleClient(
+        base_url, model, api_key, timeout, extra_body=model_options(model, reasoning_effort), max_tokens=max_tokens
+    )
 
 
 def client_from_settings(settings) -> ChatClient:
     return make_chat_client(
-        settings.llm_base_url, settings.llm_model, settings.llm_api_key, settings.llm_timeout, settings.ollama_num_ctx
+        settings.llm_base_url,
+        settings.llm_model,
+        settings.llm_api_key,
+        settings.llm_timeout,
+        settings.ollama_num_ctx,
+        settings.llm_max_output_tokens,
+        settings.reasoning_effort,
     )
+
+
+class CachedClient:
+    """Disk cache of chat responses keyed by the exact request.
+
+    Re-running a benchmark (or asking an identical question) costs zero tokens,
+    which keeps free-tier quotas for new work. Opt-in: used by ``repolens eval``.
+    """
+
+    def __init__(self, inner: ChatClient, directory: Path, enabled: bool = True) -> None:
+        self.inner = inner
+        self.model = inner.model
+        self.directory = Path(directory)
+        self.enabled = enabled
+        self.hits = 0
+        self.misses = 0
+        self.tokens_total = 0  # tokens of all responses, cached or not
+        self.tokens_spent = 0  # tokens actually billed by the provider in this session
+
+    @staticmethod
+    def _tokens(usage: dict[str, int]) -> int:
+        return int(usage.get("prompt_tokens", 0)) + int(usage.get("completion_tokens", 0))
+
+    def _key(self, messages, tools, temperature) -> str:
+        payload = json.dumps(
+            {"model": self.model, "messages": messages, "tools": tools, "temperature": temperature},
+            sort_keys=True,
+            ensure_ascii=False,
+        )
+        return hashlib.sha256(payload.encode()).hexdigest()
+
+    def chat(self, messages, tools=None, temperature: float = 0.1) -> ChatResponse:
+        key = self._key(messages, tools, temperature)
+        path = self.directory / key[:2] / f"{key}.json"
+        if self.enabled and path.exists():
+            self.hits += 1
+            data = json.loads(path.read_text(encoding="utf-8"))
+            calls = [ToolCall(c["id"], c["name"], c["arguments"]) for c in data["tool_calls"]]
+            self.tokens_total += self._tokens(data["usage"])
+            return ChatResponse(data["content"], calls, {**data["usage"], "cached": 1}, data.get("finish_reason"))
+        self.misses += 1
+        response = self.inner.chat(messages, tools=tools, temperature=temperature)
+        spent = self._tokens(response.usage)
+        self.tokens_total += spent
+        self.tokens_spent += spent
+        if not self.enabled:
+            return response
+        path.parent.mkdir(parents=True, exist_ok=True)
+        record = {
+            "content": response.content,
+            "tool_calls": [{"id": c.id, "name": c.name, "arguments": c.arguments} for c in response.tool_calls],
+            "usage": response.usage,
+            "finish_reason": response.finish_reason,
+        }
+        path.write_text(json.dumps(record), encoding="utf-8")
+        return response
+
+    def stream(self, messages, temperature: float = 0.1) -> Iterator[str]:
+        yield self.chat(messages, temperature=temperature).content
+
+    def list_models(self) -> list[str]:
+        return self.inner.list_models()
 
 
 class ScriptedClient:

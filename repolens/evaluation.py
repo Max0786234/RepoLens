@@ -155,14 +155,21 @@ def run_retrieval(
 
 
 def run_answers(
-    questions: list[Question], repos: dict[str, Any], settings: Settings, mode: str, limit: int | None, semantic: bool
+    questions: list[Question],
+    repos: dict[str, Any],
+    settings: Settings,
+    mode: str,
+    limit: int | None,
+    semantic: bool,
+    use_cache: bool = True,
 ) -> dict[str, Any]:
     from .agent import Agent, AgentConfig
     from .citations import verify_citations
-    from .llm import client_from_settings
+    from .llm import CachedClient, client_from_settings
     from .rag import answer_question
 
-    llm = client_from_settings(settings)
+    # Re-running the benchmark replays identical requests from disk and costs no tokens.
+    llm = CachedClient(client_from_settings(settings), settings.cache_dir / "llm-cache", enabled=use_cache)
     selected = questions
     rows = []
     for repo_name, spec in repos.items():
@@ -173,21 +180,23 @@ def run_answers(
         index = open_index(source, settings, semantic=semantic).index
         for q in repo_questions:
             started = time.perf_counter()
+            tokens_before = llm.tokens_total
             if mode == "agent":
                 result = Agent(
                     index,
                     llm,
-                    AgentConfig(max_steps=settings.max_agent_steps),
+                    AgentConfig.from_settings(settings),
                     label=f"{spec['url'].split('github.com/')[-1]}",
                 ).ask(q.question)
                 answer, evidence, grounding = result.answer, result.evidence, result.grounding
                 steps, tool_calls = result.steps, result.tool_calls
             else:
-                rag = answer_question(llm, index, q.question)
+                rag = answer_question(llm, index, q.question, max_context_tokens=settings.llm_max_context_tokens)
                 answer, evidence = rag.answer, rag.evidence
                 grounding = verify_citations(answer, index, evidence)
                 steps, tool_calls = 1, 0
             elapsed = time.perf_counter() - started
+            tokens = llm.tokens_total - tokens_before
             expected_paths = {e.path for e in q.expected}
             correct = any(c.status == "verified" and c.resolved_path in expected_paths for c in grounding.citations)
             recall = any(_overlaps(r.path, r.start_line, r.end_line, q.expected) for r in evidence.ranges)
@@ -201,11 +210,14 @@ def run_answers(
                 "steps": steps,
                 "tool_calls": tool_calls,
                 "seconds": round(elapsed, 1),
+                "tokens": tokens,
                 "answer": answer,
             }
             rows.append(row)
             print(
-                f"   {q.id}: correct={correct} recall={recall} grounding={grounding.label} {elapsed:.0f}s", flush=True
+                f"   {q.id}: correct={correct} recall={recall} grounding={grounding.label} "
+                f"{elapsed:.0f}s {tokens} tokens",
+                flush=True,
             )
     numeric = [
         "correct_citation",
@@ -216,9 +228,18 @@ def run_answers(
         "steps",
         "tool_calls",
         "seconds",
+        "tokens",
     ]
     summary = {k: round(statistics.fmean(r[k] for r in rows), 3) for k in numeric} if rows else {}
-    return {"mode": mode, "model": settings.llm_model, "questions": len(rows), "summary": summary, "details": rows}
+    return {
+        "mode": mode,
+        "model": settings.llm_model,
+        "provider": settings.provider,
+        "questions": len(rows),
+        "summary": summary,
+        "cache": {"hits": llm.hits, "misses": llm.misses, "tokens_spent": llm.tokens_spent},
+        "details": rows,
+    }
 
 
 def retrieval_markdown(result: dict[str, Any], embedder: str | None) -> str:
@@ -258,11 +279,11 @@ def answers_markdown(result: dict[str, Any]) -> str:
     s = result["summary"]
     return "\n".join(
         [
-            f"Mode: {result['mode']} | model: {result['model']} | questions: {result['questions']}",
+            f"Mode: {result['mode']} | provider: {result.get('provider', '?')} | model: {result['model']} | questions: {result['questions']}",
             "",
-            "| Correct verified citation | Evidence recall | Grounding | Answers with citations | Invalid citations / answer | Avg steps | Avg latency |",
-            "|---|---|---|---|---|---|---|",
-            f"| {s['correct_citation']:.2f} | {s['evidence_recall']:.2f} | {s['grounding']:.2f} | {s['cited']:.2f} | {s['invalid_citations']:.2f} | {s['steps']:.1f} | {s['seconds']:.0f} s |",
+            "| Correct verified citation | Evidence recall | Grounding | Answers with citations | Invalid citations / answer | Avg steps | Avg latency | Avg tokens |",
+            "|---|---|---|---|---|---|---|---|",
+            f"| {s['correct_citation']:.2f} | {s['evidence_recall']:.2f} | {s['grounding']:.2f} | {s['cited']:.2f} | {s['invalid_citations']:.2f} | {s['steps']:.1f} | {s['seconds']:.0f} s | {s.get('tokens', 0):.0f} |",
         ]
     )
 
@@ -277,12 +298,18 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--limit", type=int, help="Evaluate answers on the first N questions of each repository")
     parser.add_argument("--repo", help="Only evaluate one repository")
     parser.add_argument("--output", type=Path, default=EVAL_DIR / "results")
+    parser.add_argument(
+        "--provider", choices=["ollama", "groq", "openai", "anthropic"], help="Provider preset for --agent"
+    )
     parser.add_argument("--model", help="Chat model for --agent")
+    parser.add_argument("--no-cache", action="store_true", help="Do not reuse cached model responses")
     parser.add_argument("--skip-retrieval", action="store_true", help="Only run the answer evaluation")
 
 
 def main(args: argparse.Namespace) -> int:
     settings = Settings.from_env()
+    if args.provider:
+        settings.apply_provider(args.provider)
     if args.model:
         settings.llm_model = args.model
     repos = json.loads(args.repos.read_text(encoding="utf-8"))
@@ -305,9 +332,9 @@ def main(args: argparse.Namespace) -> int:
 
     if args.agent:
         print(f"\n== Answer evaluation ({args.mode}, {settings.llm_model})", flush=True)
-        answers = run_answers(questions, repos, settings, args.mode, args.limit, semantic)
+        answers = run_answers(questions, repos, settings, args.mode, args.limit, semantic, not args.no_cache)
         table = answers_markdown(answers)
-        stem = f"answers-{args.mode}"
+        stem = f"answers-{settings.provider}-{args.mode}"
         (args.output / f"{stem}.json").write_text(json.dumps(answers, indent=2), encoding="utf-8")
         (args.output / f"{stem}.md").write_text(table + "\n", encoding="utf-8")
         print("\n" + table)

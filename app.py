@@ -228,7 +228,8 @@ with st.sidebar:
             help="Kept in this browser session only; never written to disk.",
         )
     models, probe_error = probe_models(base_url, api_key)
-    chat_models = [m for m in models if "embed" not in m.lower()]
+    non_chat = ("embed", "whisper", "guard", "orpheus", "tts", "allam")
+    chat_models = [m for m in models if not any(word in m.lower() for word in non_chat)]
     default_model = settings.llm_model if provider_key == "ollama" else preset.default_model
     if chat_models:
         index_default = chat_models.index(default_model) if default_model in chat_models else 0
@@ -266,6 +267,8 @@ with st.sidebar:
         max_steps = st.slider("Agent tool budget (steps)", 2, 10, settings.max_agent_steps)
         top_k = st.slider("Chunks retrieved (quick/search)", 3, 12, 6)
 
+    if provider_key not in {"ollama", "custom"}:
+        settings.apply_provider(provider_key)  # token budgets for rate-limited tiers
     settings.llm_base_url, settings.llm_model, settings.llm_api_key = base_url, model, api_key or None
     if provider_key != "ollama":
         # Hosted chat providers: use their embeddings endpoint only if explicitly configured.
@@ -413,8 +416,16 @@ if prompt:
         st.stop()
 
     llm = make_chat_client(
-        settings.llm_base_url, settings.llm_model, settings.llm_api_key, settings.llm_timeout, settings.ollama_num_ctx
+        settings.llm_base_url,
+        settings.llm_model,
+        settings.llm_api_key,
+        settings.llm_timeout,
+        settings.ollama_num_ctx,
+        settings.llm_max_output_tokens,
+        settings.reasoning_effort,
     )
+    if hasattr(llm, "limiter"):
+        llm.limiter.on_wait = lambda seconds, reason: st.toast(f"⏳ {reason} Waiting {seconds:.0f}s")
     with st.chat_message("assistant"):
         if history and is_follow_up(prompt):
             st.caption("↪ Follow-up detected: searching with the previous question as context.")
@@ -423,7 +434,7 @@ if prompt:
             with st.expander(f"Retrieved {len(rag.hits)} chunks", expanded=False):
                 render_hits([h.to_dict() for h in rag.hits], workspace.source)
             try:
-                st.write_stream(stream_answer(llm, index, rag, history, memory))
+                st.write_stream(stream_answer(llm, index, rag, history, memory, settings.llm_max_context_tokens))
                 error = None
             except LLMError as exc:
                 error = str(exc)
@@ -438,7 +449,9 @@ if prompt:
                 "meta": f"quick · {settings.llm_model} · {time.perf_counter() - started:.1f}s",
             }
         else:
-            agent = Agent(index, llm, AgentConfig(max_steps=max_steps), label=workspace.source.label)
+            agent = Agent(
+                index, llm, AgentConfig.from_settings(settings, max_steps=max_steps), label=workspace.source.label
+            )
             result = None
             with st.status("Investigating the codebase...", expanded=True) as status:
                 for event in agent.run(prompt, history, memory):
@@ -470,7 +483,8 @@ if prompt:
                 ],
                 "hits": hits,
                 "evidence": [r.__dict__ for r in result.evidence.ranges][:300],
-                "meta": f" agent · {settings.llm_model} · {result.steps} steps · {result.tool_calls} tools · {result.elapsed:.1f}s",
+                "meta": f" agent · {settings.llm_model} · {result.steps} steps · {result.tool_calls} tools"
+                f" · {result.usage.get('prompt_tokens', 0) + result.usage.get('completion_tokens', 0):,} tokens · {result.elapsed:.1f}s",
             }
     st.session_state.messages.append(message)
     st.rerun()
