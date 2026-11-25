@@ -19,7 +19,18 @@ import re
 from dataclasses import asdict, dataclass, field
 
 from .index import CodeIndex
+from .languages import detect_language
 from .tools import EvidenceLog
+
+
+def looks_like_file(path: str) -> bool:
+    """A citation path must have a directory or a known source/doc extension.
+
+    Without this, prose such as ``socket.gaierror (lines 861-868)`` was read as a
+    citation of a file called ``socket.gaierror`` and counted as hallucinated.
+    """
+    return "/" in path or detect_language(path) is not None
+
 
 _PATH = r"(?P<path>(?:[\w.\-]+/)*[\w.\-]+\.[A-Za-z0-9]{1,8})"
 _CITATION_RES = [
@@ -88,6 +99,8 @@ def extract_citations(text: str) -> list[Citation]:
             path = match["path"].removeprefix("./")
             if re.fullmatch(r"[\d.]+", path):
                 continue  # version numbers like 1.2.3
+            if not looks_like_file(path):
+                continue  # hostnames, exceptions, attributes: sub.example.com, socket.gaierror
             start = int(match["start"])
             end = int(match["end"]) if match["end"] else start
             if end < start:

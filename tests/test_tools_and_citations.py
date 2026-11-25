@@ -178,3 +178,12 @@ def test_call_graph_ignores_strings_comments_and_definition_lines(tmp_path):
     graph = CodeIndex.build(tmp_path).call_graph()
     sites = graph.callers("target")
     assert [(s.caller.qualname, s.line) for s in sites] == [("user", 8)]
+
+
+def test_prose_with_dots_is_not_a_citation():
+    text = (
+        "It resolves `sub.example.com` (lines 848-859) and catches socket.gaierror (lines 861-868); "
+        "see src/requests/utils.py:819-820 and setup.cfg:3."
+    )
+    found = {(c.path, c.start_line) for c in extract_citations(text)}
+    assert found == {("src/requests/utils.py", 819), ("setup.cfg", 3)}
