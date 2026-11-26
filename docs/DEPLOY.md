@@ -46,6 +46,7 @@ App → **⋮ → Settings → Secrets** on share.streamlit.io. Useful knobs:
 | `REPOLENS_MAX_STEPS` | `6` (capped at 4 in public mode) | agent tool budget per question |
 | `REPOLENS_MAX_CONTEXT_TOKENS` | `5500` | largest request sent to Groq |
 | `REPOLENS_LLM_MODEL` | `openai/gpt-oss-120b` | e.g. `openai/gpt-oss-20b` for a separate quota |
+| `GITHUB_TOKEN` | (none) | optional, free: a GitHub token with no extra scopes raises GitHub's anonymous API limit (60 requests/hour, shared by everyone on the hosting servers) to 5,000/hour, so loading repositories and pull requests keeps working on busy days |
 
 ## Rotating the key
 
