@@ -214,7 +214,9 @@ class ToolBox:
                     else ""
                 )
                 blocks.append(
-                    f"[{hit.rank}] {c.path}:{c.start_line}-{c.end_line}{label}\n{_number(lines, first_line)}{note}"
+                    # Results are labelled by path, not by number: numbered labels invite citations
+                    # such as 【4†L815-L824】 (gpt-oss's native style) that cannot be verified.
+                    f"--- {c.path}:{c.start_line}-{c.end_line}{label}\n{_number(lines, first_line)}{note}"
                 )
             return ToolResult("\n\n".join(blocks), data=[h.to_dict() for h in hits])
 

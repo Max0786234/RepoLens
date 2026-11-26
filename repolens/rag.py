@@ -18,7 +18,8 @@ from .tools import EvidenceLog
 RAG_SYSTEM_PROMPT = (
     "You are RepoLens, a careful software engineer answering questions about a repository. "
     "Answer using only the provided source excerpts. Start with the direct answer, then explain briefly. "
-    "Cite every claim as `path:start-end` using the line numbers shown. "
+    "Cite every claim as `path:start-end` using the line numbers shown; always write the file path, "
+    "never numbered references or markers such as [1] or 【1†L10-L20】. "
     "If the excerpts do not contain the answer, say what is missing instead of guessing."
 )
 
@@ -38,14 +39,14 @@ class RagAnswer:
 def build_context(hits: list[SearchHit], max_chars: int = MAX_CONTEXT_CHARS) -> str:
     parts: list[str] = []
     used = 0
-    for i, hit in enumerate(hits, start=1):
+    for hit in hits:
         c = hit.chunk
         lines = c.text.splitlines()
         body = "\n".join(f"{c.start_line + n} | {line}" for n, line in enumerate(lines))
         if len(body) > MAX_CHUNK_CHARS:
             body = body[:MAX_CHUNK_CHARS] + "\n..."
         label = f" ({c.kind} {c.symbol})" if c.symbol else ""
-        block = f"[{i}] {c.path}:{c.start_line}-{c.end_line}{label}\n{body}"
+        block = f"--- {c.path}:{c.start_line}-{c.end_line}{label}\n{body}"
         if used + len(block) > max_chars and parts:
             break
         parts.append(block)

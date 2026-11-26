@@ -44,6 +44,7 @@ How to work:
 Answer rules:
 - Start with a direct answer, then explain briefly (short paragraphs or bullet points).
 - Back every claim with a citation in the form `path:start-end`, for example `src/app.py:10-24`. Only cite line ranges that appeared in tool results.
+- Write the file path in every citation. Never use numbered references, footnotes or markers such as [1] or 【1†L10-L20】.
 - Describe only code you have actually seen. If a result says "showing lines ..." or is cut off, call read_file for the rest before describing it; never guess what unseen lines do.
 - Quote small code excerpts only when they help.
 - If the evidence is insufficient, say exactly what is missing. Never invent files, functions or behaviour."""
