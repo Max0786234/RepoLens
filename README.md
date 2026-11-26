@@ -135,15 +135,16 @@ Switching non-Python parsing from regexes to tree-sitter left these numbers unch
 
 | Setup | Correct verified citation | Grounding | Invalid (hallucinated) citations | Avg tool steps | Avg time | Avg tokens |
 |---|---|---|---|---|---|---|
-| Quick mode · `qwen3:4b-instruct` · local CPU laptop | 0.78 | 0.78 | **0** | 1.0 | 331 s | – |
-| **Agent** · `qwen3:4b-instruct` · local CPU laptop | **1.00** | **1.00** | **0** | 1.0 | 164 s | – |
+| Quick mode · `qwen3:4b-instruct` · local CPU laptop (earlier run) | 0.78 | 0.78 | **0** | 1.0 | 331 s | – |
+| **Agent** · `qwen3:4b-instruct` · local CPU laptop | **1.00** | **1.00** | **0** | 1.0 | 185 s | – |
 | **Agent** · `qwen/qwen3.8-27b` · Groq free tier | **1.00** | **0.97**¹ | **0**¹ | 3.9 | 151 s | 18k |
-| **Agent** · `openai/gpt-oss-120b` · Groq free tier² | **1.00** | **1.00** | **0** | 3.2 | 90 s | 11k |
+| **Agent** · `openai/gpt-oss-120b` · Groq free tier (the live demo's model) | **1.00** | **1.00** | **0** | 2.6 | 71 s | 8.4k |
 
 - *Correct verified citation*: the answer cites the file that actually answers the question, and the agent was shown those lines. *Grounding*: share of all citations that are verified.
 - No answer in any setup cited a file or line that does not exist. The two Quick-mode misses were answers without any line citation.
 - ¹ The run flagged 2 citations as invalid; both were parser false positives (`socket.gaierror (lines 861-868)` read as a file name), fixed in the citation extractor — the model's citations were all real.
-- ² Measured before the call-graph tools and the "never describe unseen code" rule were added; it will be re-run when the free daily quota allows.
+- After the latest improvements (call-graph tools, path-labelled results, stricter prompt rules) `gpt-oss-120b` needs fewer steps and tokens than before (3.2 → 2.6 steps, 11k → 8.4k tokens, 90 → 71 s per question); one run per setup, so treat small differences with care. Earlier runs are in [`eval/results/before/`](eval/results/before).
+- One intermediate run scored 7/9 because two correct answers cited in gpt-oss's native style (`【4†L815-L824】`, a result number instead of a file path), which cannot be verified. Search results are now labelled by file path and the prompt requires paths; the re-run above is 9/9. That run is kept in `eval/results/before/` too.
 - Groq times are dominated by deliberate pacing to the free tier's 8k tokens/minute limit, not by the model.
 
 Reproduce: `repolens eval` (retrieval), `repolens eval --skip-retrieval --agent --mode agent --limit 3 [--provider groq]` (answers). Model responses are cached, so a re-run costs no tokens. Raw per-question results, answers and token counts are in [`eval/results/`](eval/results).

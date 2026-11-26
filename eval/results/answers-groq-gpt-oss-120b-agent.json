@@ -1,0 +1,141 @@
+{
+  "mode": "agent",
+  "model": "openai/gpt-oss-120b",
+  "provider": "groq",
+  "questions": 9,
+  "summary": {
+    "correct_citation": 1.0,
+    "evidence_recall": 1.0,
+    "grounding": 1.0,
+    "cited": 1.0,
+    "invalid_citations": 0.0,
+    "steps": 2.556,
+    "tool_calls": 1.444,
+    "seconds": 71.156,
+    "tokens": 8430.333
+  },
+  "cache": {
+    "hits": 0,
+    "misses": 24,
+    "tokens_spent": 75873
+  },
+  "details": [
+    {
+      "id": "requests-01",
+      "correct_citation": 1.0,
+      "evidence_recall": 1.0,
+      "grounding": 1.0,
+      "cited": 1.0,
+      "invalid_citations": 0,
+      "steps": 1,
+      "tool_calls": 0,
+      "seconds": 5.7,
+      "tokens": 2456,
+      "answer": "**Answer**\n\n`requests` decides whether to drop the\u202f`Authorization` header in a redirect by comparing the original request URL with the URL of the redirected request in `SessionRedirectMixin.should_strip_auth`.  \n\nThe method returns **True** (drop the header) when any of the following conditions is met:\n\n1. **Different hostnames** \u2013 if the hostname part of the URL changes (`old_parsed.hostname != new_parsed.hostname`).  \n2. **Scheme change that is not a safe http\u2192https upgrade** \u2013 the only allowed scheme change without stripping is an upgrade from `http` (port\u202f80 or unspecified) to `https` (port\u202f443 or unspecified). All other scheme changes (e.g., https\u2192http, http\u2192ftp) cause the header to be stripped.  \n3. **Port change that is not covered by the default\u2011port rule** \u2013 after handling the special http\u2192https case, the code checks whether the ports differ and whether both ports are the defaults for their schemes. If the ports differ and they are not both default ports, the header is stripped.  \n\nIf none of the above conditions apply (same host, same scheme or the allowed http\u2192https upgrade, and ports are either unchanged or both default), the method returns **False** and the header is kept.\n\nThe decision is applied in `SessionRedirectMixin.rebuild_auth`:\n\n```python\nif \"Authorization\" in headers and self.should_strip_auth(original_url, url):\n    del headers[\"Authorization\"]\n```\n\nThus, the presence of the `Authorization` header after a redirect depends entirely on the result of `should_strip_auth`, which implements the hostname, scheme, and port checks described above.  \n\n**Key code**\n\n- `should_strip_auth` implementation showing the hostname, scheme, and port logic\u3010src/requests/sessions.py:154-182\u3011.  \n- `rebuild_auth` where the decision is used to delete the header\u3010src/requests/sessions.py:324-328\u3011.  \n\nThe test suite confirms this behavior: the header is retained when the redirect stays on the same host, and it is stripped when an https\u2011to\u2011http downgrade occurs\u3010tests/test_requests.py:1924-1931\u3011."
+    },
+    {
+      "id": "requests-02",
+      "correct_citation": 1.0,
+      "evidence_recall": 1.0,
+      "grounding": 1.0,
+      "cited": 1.0,
+      "invalid_citations": 0,
+      "steps": 3,
+      "tool_calls": 2,
+      "seconds": 66.4,
+      "tokens": 9007,
+      "answer": "The redirect\u2011following loop is implemented in **`SessionRedirectMixin.resolve_redirects`** inside `src/requests/sessions.py`.\n\n```python\ndef resolve_redirects(...):\n    \u2026\n    url = self.get_redirect_target(resp)\n    previous_fragment = urlparse(req.url).fragment\n    while url:                     # \u2190 loop that follows redirects\n        prepared_request = req.copy()\n        \u2026\n        # build the next request (method, headers, body, etc.)\n        \u2026\n        # send the request (or yield it) and obtain the next response\n        \u2026\n        # extract the next redirect target for the next iteration\n        url = self.get_redirect_target(resp)\n        yield resp\n```\n\nThe loop starts at line\u202f202 with `url = self.get_redirect_target(resp)` and continues while `url` is truthy (`while url:`)\u202f\u3010src/requests/sessions.py:202-207\u3011. Inside the loop the code:\n\n* copies the original request,\n* updates history,\n* consumes the response body,\n* rebuilds the method and headers,\n* sends the new request (or yields it),\n* extracts the next redirect URL (`url = self.get_redirect_target(resp)`)\u202f\u3010src/requests/sessions.py:286-307\u3011.\n\nThus, the while\u2011loop in `SessionRedirectMixin.resolve_redirects` is the part of the code that follows redirect responses and builds each subsequent request."
+    },
+    {
+      "id": "requests-03",
+      "correct_citation": 1.0,
+      "evidence_recall": 1.0,
+      "grounding": 1.0,
+      "cited": 1.0,
+      "invalid_citations": 0,
+      "steps": 1,
+      "tool_calls": 0,
+      "seconds": 31.3,
+      "tokens": 2886,
+      "answer": "**Answer**\n\n`requests` checks the `NO_PROXY` (or `no_proxy`) environment variable in `should_bypass_proxies()`.  \n\n1. When a request is made, `resolve_proxies()` (or `get_environ_proxies()`) first calls `should_bypass_proxies(url, no_proxy)`.  \n2. `should_bypass_proxies()` reads the variable (lower\u2011case first, then upper\u2011case) and parses the URL to obtain its hostname.  \n3. If the hostname is **empty** (e.g., a `file://` URL) it always bypasses the proxy.  \n4. If `NO_PROXY` is set, the function splits the variable on commas, removes spaces, and iterates over each entry:  \n\n   * For IPv4 addresses it also supports CIDR notation (`192.168.0.0/24`). If the hostname matches an address or falls inside a CIDR range, the function returns `True`.  \n   * For normal hostnames it checks whether the hostname **ends with** the entry, both with and without an optional port (e.g., `example.com` matches `sub.example.com` or `example.com:8080`).  \n\n5. When `should_bypass_proxies()` returns `True`, `get_environ_proxies()` returns an empty dict, causing `resolve_proxies()` to leave the proxy mapping unchanged \u2013 the request is sent directly, skipping any proxy configured in the environment.  \n\nKey code excerpts:\n\n* `should_bypass_proxies()` reads the variable and parses the hostname\u3010src/requests/utils.py:817-834\u3011.  \n* It splits `no_proxy` and checks each host, handling IPv4/CIDR and hostname suffix matches\u3010src/requests/utils.py:835-843\u3011 (continues with the matching logic).  \n* `get_environ_proxies()` returns `{}` when bypass is required\u3010src/requests/utils.py:873-880\u3011.  \n* `resolve_proxies()` uses this result to decide whether to add an environment proxy or not\u3010src/requests/utils.py:911-939\u3011.\n\nThus, the `NO_PROXY` environment variable provides a comma\u2011separated list of hostnames, IP addresses, or CIDR ranges; any request whose target hostname matches an entry is sent without using the proxy."
+    },
+    {
+      "id": "flask-01",
+      "correct_citation": 1.0,
+      "evidence_recall": 1.0,
+      "grounding": 1.0,
+      "cited": 1.0,
+      "invalid_citations": 0,
+      "steps": 6,
+      "tool_calls": 5,
+      "seconds": 188.4,
+      "tokens": 23862,
+      "answer": "The Flask CLI creates a `ScriptInfo` object that receives an import string such as `myapp:app`. When `ScriptInfo.load_app()` is called it imports the module part of the string with `import_string`, then uses **`find_best_app`** to locate the Flask instance.\n\n`find_best_app` examines the imported module in three steps:\n\n1. **Common attribute names** \u2013 it checks `module.app` and `module.application` and returns the value if it is a `Flask` instance\u3010src/flask/cli.py:47-53\u3011.  \n2. **Single Flask object** \u2013 if no common name matches, it collects all objects in the module that are instances of `Flask`; if exactly one is found it returns that object\u3010src/flask/cli.py:54-58\u3011.  \n3. **Factory functions** \u2013 if still nothing, it looks for functions named `create_app` or `make_app`. If such a function can be called without arguments and returns a `Flask` instance, that result is returned\u3010src/flask/cli.py:66-75\u3011.  \n\nIf multiple Flask objects or factories that cannot be called are found, a `NoAppException` is raised with a helpful message\u3010src/flask/cli.py:59-64\u3011\u3010src/flask/cli.py:80-85\u3011.\n\nThus, the command\u2011line tool discovers the application object by importing the module and then applying the heuristic logic in `find_best_app` to locate an `app` variable, a sole Flask instance, or a callable factory. If the import string includes an explicit name (e.g., `myapp:create_app`), the CLI bypasses this search and loads that attribute directly."
+    },
+    {
+      "id": "flask-02",
+      "correct_citation": 1.0,
+      "evidence_recall": 1.0,
+      "grounding": 1.0,
+      "cited": 1.0,
+      "invalid_citations": 0,
+      "steps": 4,
+      "tool_calls": 2,
+      "seconds": 114.3,
+      "tokens": 9711,
+      "answer": "The session cookie is created by **`SecureCookieSessionInterface.get_signing_serializer`** and then written by **`SecureCookieSessionInterface.save_session`**.\n\n* **Signing serializer** \u2013 `get_signing_serializer` builds a `itsdangerous.URLSafeTimedSerializer` that knows how to sign and (de\u2011)serialize the data:\n\n```python\ndef get_signing_serializer(self, app: Flask) -> URLSafeTimedSerializer | None:\n    if not app.secret_key:\n        return None\n\n    keys: list[str | bytes] = []\n    if fallbacks := app.config[\"SECRET_KEY_FALLBACKS\"]:\n        keys.extend(fallbacks)\n\n    keys.append(app.secret_key)          # current key first\n    return URLSafeTimedSerializer(\n        keys,                            # secret keys\n        salt=self.salt,                  # \"cookie-session\"\n        serializer=self.serializer,     # JSON\u2011compatible serializer\n        signer_kwargs={\n            \"key_derivation\": self.key_derivation,\n            \"digest_method\": self.digest_method,\n        },\n    )\n```\n\n* **Serialization & signing** \u2013 When a response is finished, `save_session` calls that serializer\u2019s `dumps` method on the session dict:\n\n```python\ndef save_session(self, app: Flask, session: SessionMixin, response: Response) -> None:\n    ...\n    val = self.get_signing_serializer(app).dumps(dict(session))  # type: ignore[union-attr]\n    response.set_cookie(name, val, ...)\n```\n\nThus the cookie value is a **URL\u2011safe, timed, signed string** produced by `itsdangerous.URLSafeTimedSerializer`. The serializer uses:\n\n* the secret key (and any fallback keys) as the signing key,\n* the salt `\"cookie-session\"` (`self.salt`),\n* the JSON\u2011compatible `session_json_serializer` (`self.serializer`),\n* HMAC key derivation (`self.key_derivation = \"hmac\"`),\n* SHA\u20111 digest (`self.digest_method = staticmethod(_lazy_sha1)`).\n\nThe signed, serialized string is then set as the cookie value.  \n\n**Citations**\n\n* Definition of the signing serializer \u2013 `src/flask/sessions.py:303-321`.  \n* Use of the serializer to dump (serialize\u202f+\u202fsign) the session data \u2013 `src/flask/sessions.py:369-374`."
+    },
+    {
+      "id": "flask-03",
+      "correct_citation": 1.0,
+      "evidence_recall": 1.0,
+      "grounding": 1.0,
+      "cited": 1.0,
+      "invalid_citations": 0,
+      "steps": 2,
+      "tool_calls": 1,
+      "seconds": 56.5,
+      "tokens": 6564,
+      "answer": "**How `url_for` builds a URL**\n\n`flask.url_for` is a thin wrapper that forwards to `Flask.url_for`. The method constructs the URL in several steps:\n\n1. **Determine the URL adapter**  \n   * If there is an active request (`ctx.has_request`), it uses the request\u2019s `url_adapter`.  \n   * Otherwise it creates a new adapter with `self.create_url_adapter(None)` (or uses the one from an app\u2011context) and raises a clear error if no adapter can be built. (`src/flask/app.py:1202\u20111226`).\n\n2. **Resolve a relative endpoint**  \n   * When the endpoint string starts with \u201c.\u201d and the current request is inside a blueprint, the blueprint name is prefixed (`endpoint = f\"{blueprint_name}{endpoint}\"`). If no blueprint is active the leading \u201c.\u201d is stripped. (`src/flask/app.py:1206\u20111212`).\n\n3. **Decide whether the URL should be external**  \n   * Inside a request the default is *internal* (`_external=False`) unless a scheme is supplied, in which case `_external` becomes `True`. (`src/flask/app.py:1214\u20111217`)  \n   * Outside a request the default is *external* (`_external=True`). (`src/flask/app.py:1235\u20111238`)  \n   * Supplying `_scheme` while `_external=False` raises `ValueError` to prevent insecure URLs. (`src/flask/app.py:1240\u20111243`).\n\n4. **Inject default values**  \n   * `self.inject_url_defaults(endpoint, values)` adds any defaults defined by the app or blueprints before building. (`src/flask/app.py:1245`).\n\n5. **Build the URL with the adapter**  \n   * The adapter\u2019s `build` method is called with the endpoint, the collected `values`, the optional HTTP method, the optional scheme (`url_scheme=_scheme`), and `force_external=_external`. (`src/flask/app.py:1247\u20111254`).\n\n6. **Handle errors**  \n   * If `BuildError` is raised, the original values are updated with the special `_anchor`, `_method`, `_scheme`, and `_external` keys and `self.handle_url_build_error` is invoked. (`src/flask/app.py:1255\u20111259`).\n\n7. **Add an anchor**  \n   * If `_anchor` is provided, it is URL\u2011quoted and appended as `#anchor`. (`src/flask/app.py:1261\u20111264`).\n\n8. **Return the final string**  \n   * The resulting URL (internal or external, with optional scheme and anchor) is returned. (`src/flask/app.py:1265`).\n\nThus, `url_for` builds a URL by selecting the correct adapter, optionally prefixing a blueprint, deciding external vs. internal based on request context and the `_scheme` flag, injecting defaults, delegating to the adapter\u2019s `build` method, and finally appending any anchor. The `_external` flag forces inclusion of scheme and domain, while `_scheme` can override the scheme used for external URLs."
+    },
+    {
+      "id": "express-01",
+      "correct_citation": 1.0,
+      "evidence_recall": 1.0,
+      "grounding": 1.0,
+      "cited": 1.0,
+      "invalid_citations": 0,
+      "steps": 3,
+      "tool_calls": 2,
+      "seconds": 80.1,
+      "tokens": 10662,
+      "answer": "**How `res.redirect` works**\n\n1. **Determine the status and URL**  \n   * The function starts with `status = 302` and `address = url`.  \n   * If two arguments are passed, the first is taken as the status and the second as the URL (`if (arguments.length === 2) { status = arguments[0]; address = arguments[1]; }`).\u3010lib/response.js:815-824\u3011\n\n2. **Validate the arguments** \u2013 it warns (via `deprecate`) when the URL is missing, not a string, or the status is not a number\u3010lib/response.js:826-836\u3011.\n\n3. **Set the **`Location`** header**  \n   * `res.redirect` calls `this.location(address)`.  \n   * `res.location` is defined in the same file and simply does `return this.set('Location', encodeUrl(url));`\u3010lib/response.js:797-799\u3011.  \n   * The call returns the response object, and `get('Location')` retrieves the encoded value, which is stored back in `address` (`address = this.location(address).get('Location');`).\u3010lib/response.js:838-840\u3011\n\n4. **Prepare the response body** (plain\u2011text or HTML) using the chosen status code, but the body is not what sets the header.\n\n5. **Set the HTTP status code**  \n   * After building the body, `res.redirect` calls `this.status(status);` which sets the response\u2019s status code to the value determined earlier (default\u202f302 or the user\u2011provided one).\u3010lib/response.js:858-860\u3011\n\n6. **Send the response** \u2013 `this.end(body)` (or just `end()` for HEAD requests) finalises the response with the previously set `Location` header and status code\u3010lib/response.js:862-866\u3011.\n\n**Summary**\n\n- `res.redirect` first determines the status (default\u202f302) and URL.  \n- It sets the `Location` header by delegating to `res.location`, which encodes the URL and uses `this.set('Location', \u2026)`.  \n- It then sets the HTTP status with `this.status(status)`.  \n- Finally it sends the response (with an optional body).  \n\nThus the `Location` header is set via `res.location` (which calls `set('Location', encodeUrl(url))`), and the status code is set via `this.status(status)` inside `res.redirect`."
+    },
+    {
+      "id": "express-02",
+      "correct_citation": 1.0,
+      "evidence_recall": 1.0,
+      "grounding": 1.0,
+      "cited": 1.0,
+      "invalid_citations": 0,
+      "steps": 2,
+      "tool_calls": 1,
+      "seconds": 62.1,
+      "tokens": 7439,
+      "answer": "**How Express creates a JSON response**\n\n1. **`res.json()` (and `res.jsonp()`) read the app\u2011level settings**  \n   ```js\n   var app       = this.app;\n   var escape    = app.get('json escape');   // true/false\n   var replacer  = app.get('json replacer'); // function or array or undefined\n   var spaces    = app.get('json spaces');   // number or undefined\n   ```  \n   (see `lib/response.js:236\u2011242`)\n\n2. **They pass those values to an internal `stringify` helper**  \n   ```js\n   var body = stringify(obj, replacer, spaces, escape);\n   ```  \n   (`lib/response.js:242` for `json`, `lib/response.js:270\u2011271` for `jsonp`)\n\n3. **`stringify` builds the JSON string**  \n\n   * If a *replacer* or *spaces* value is supplied, it calls the native\n     `JSON.stringify` with those arguments; otherwise it calls\n     `JSON.stringify(value)` directly.  \n     ```js\n     var json = replacer || spaces\n       ? JSON.stringify(value, replacer, spaces)\n       : JSON.stringify(value);\n     ```  \n     (`lib/response.js:1029\u20111031`)\n\n   * If the *escape* flag is truthy, it post\u2011processes the resulting string,\n     replacing the characters `<`, `>`, and `&` with their Unicode escape\n     sequences (`\\u003c`, `\\u003e`, `\\u0026`). This prevents HTML\u2011sniffing attacks.  \n     ```js\n     if (escape && typeof json === 'string') {\n       json = json.replace(/[<>&]/g, function (c) {\n         switch (c.charCodeAt(0)) {\n           case 0x3c: return '\\\\u003c';\n           case 0x3e: return '\\\\u003e';\n           case 0x26: return '\\\\u0026';\n         }\n       });\n     }\n     ```  \n     (`lib/response.js:1033\u20111046`)\n\n   * The final string (or `undefined` if `JSON.stringify` returned `undefined`)\n     is returned. (`lib/response.js:1049\u20111050`)\n\n4. **`res.json()` sets the `Content\u2011Type` header (if not already set) and\n   sends the string**  \n   ```js\n   if (!this.get('Content-Type')) {\n     this.set('Content-Type', 'application/json');\n   }\n   return this.send(body);\n   ```  \n   (`lib/response.js:244\u2011249`)\n\n5. **`res.jsonp()` does the same JSON stringification, then wraps the\n   result in a callback when a valid `callback` query parameter is present,\n   adjusting headers accordingly.** (`lib/response.js:264\u2011295`)\n\n**Summary**\n\n- **Replacer** (`app.set('json replacer', fn)`) is passed straight to\n  `JSON.stringify` and can filter or transform values.\n- **Spaces** (`app.set('json spaces', n)`) is also passed to\n  `JSON.stringify` to pretty\u2011print the output.\n- **Escape** (`app.enable('json escape')`) triggers a post\u2011stringify step\n  that Unicode\u2011escapes `<`, `>`, and `&` to avoid HTML sniffing.\n\nThus, Express\u2019s JSON response is produced by `res.json`/`res.jsonp`,\nwhich delegate to the private `stringify` function that respects the\n`json replacer`, `json spaces`, and `json escape` settings."
+    },
+    {
+      "id": "express-03",
+      "correct_citation": 1.0,
+      "evidence_recall": 1.0,
+      "grounding": 1.0,
+      "cited": 1.0,
+      "invalid_citations": 0,
+      "steps": 1,
+      "tool_calls": 0,
+      "seconds": 35.6,
+      "tokens": 3286,
+      "answer": "**Answer**\n\nWhen `res.send()` is called Express decides the **Content\u2011Type** and whether to create an **ETag** in the following steps:\n\n1. **Pick a Content\u2011Type**\n   * `res.send()` first looks at the type of the value passed.\n   * If the value is a **string**, it treats it as HTML by default.  \n     ```js\n     case 'string':\n       encoding = 'utf8';\n       const type = this.get('Content-Type');\n       if (typeof type === 'string') {\n         this.set('Content-Type', setCharset(type, 'utf-8'));\n       } else {\n         this.type('html');          // \u2190 default to \u201ctext/html\u201d\n       }\n     ```\n     (`lib/response.js:134\u2011145`)\n\n   * If the value is a **Buffer**, **Uint8Array**, or any other binary view and no `Content\u2011Type` header is already set, Express sets the type to \u201cbin\u201d (which maps to `application/octet-stream`).  \n     ```js\n     else if (ArrayBuffer.isView(chunk)) {\n       if (!this.get('Content-Type')) {\n         this.type('bin');\n       }\n     }\n     ```\n     (`lib/response.js:151\u2011154`)\n\n   * For **objects** (including arrays) that are not a Buffer view, Express delegates to `res.json()`, which sets `Content\u2011Type` to `application/json; charset=utf-8`.  \n     ```js\n     else {\n       return this.json(chunk);\n     }\n     ```\n     (`lib/response.js:155\u2011157`)\n\n   * If the caller has already set a `Content\u2011Type` header (e.g. via `res.type()` or `res.set()`), that value is kept and its charset is forced to UTF\u20118 for strings (`setCharset(type, 'utf-8')`).\n\n2. **Decide whether to generate an ETag**\n   * After the body is prepared, Express checks the app\u2019s `etag fn` setting and whether an `ETag` header is already present:  \n     ```js\n     var etagFn = app.get('etag fn')\n     var generateETag = !this.get('ETag') && typeof etagFn === 'function'\n     ```\n     (`lib/response.js:161\u2011164`)\n\n   * If `generateETag` is true and the length of the body (`len`) is known, Express calls the ETag function with the body (and its encoding, if any).  \n     ```js\n     if (generateETag && len !== undefined) {\n       if ((etag = etagFn(chunk, encoding))) {\n         this.set('ETag', etag);\n       }\n     }\n     ```\n     (`lib/response.js:188\u2011193`)\n\n   * The length (`len`) is calculated earlier, either from the Buffer length or via `Buffer.byteLength` for strings, ensuring the ETag is based on the exact bytes that will be sent.\n\n3. **Result**\n   * The response is sent with the determined `Content\u2011Type` header (including charset for text) and, if applicable, an automatically generated `ETag` header. If the user already set an `ETag`, Express leaves it untouched (`!this.get('ETag')` check).  \n\nThus, `res.send()` picks the content type based on the payload type (string \u2192 html, object \u2192 json, binary view \u2192 octet\u2011stream) and generates an ETag only when the app has an `etag fn` configured and no explicit `ETag` header was set."
+    }
+  ]
+}
