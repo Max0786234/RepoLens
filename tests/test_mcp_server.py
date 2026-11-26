@@ -41,6 +41,7 @@ def test_tools_list_has_input_schemas(server):
     tools = call(server, "tools/list")["result"]["tools"]
     names = [t["name"] for t in tools]
     assert names[0] == "open_repository" and names[-1] == "verify_citations"
+    assert "analyze_change" in names
     assert {"search_code", "read_file", "find_callers", "find_callees"} <= set(names)
     assert all(t["inputSchema"]["type"] == "object" and t["description"] for t in tools)
 
@@ -97,3 +98,19 @@ def test_stdio_loop_handles_parse_errors_and_batches(server):
     replies = [json.loads(line) for line in stdout.getvalue().decode().splitlines()]
     assert [r.get("id") for r in replies] == [1, None, 2]
     assert replies[1]["error"]["code"] == -32700
+
+
+def test_analyze_change_tool(server, sample_repo):
+    tool(server, "open_repository", source=str(sample_repo))
+    lines = (sample_repo / "shop" / "cart.py").read_text(encoding="utf-8").splitlines()
+    number = next(i for i, line in enumerate(lines, start=1) if "subtotal = sum(" in line)
+    diff = (
+        f"--- a/shop/cart.py\n+++ b/shop/cart.py\n@@ -{number} +{number} @@\n"
+        f"-{lines[number - 1]}\n+{lines[number - 1]}  # x\n"
+    )
+    text, is_error = tool(server, "analyze_change", diff=diff)
+    assert not is_error and "compute_total" in text and "tests/test_cart.py" in text
+    report, _ = tool(server, "verify_citations", text=f"See shop/cart.py:{number}")
+    assert "VERIFIED" in report  # lines from the change report count as evidence
+    _, is_error = tool(server, "analyze_change", diff="not a diff")
+    assert is_error

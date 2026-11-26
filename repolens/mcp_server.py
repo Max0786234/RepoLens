@@ -68,6 +68,19 @@ VERIFY_CITATIONS = {
 }
 
 
+ANALYZE_CHANGE = {
+    "name": "analyze_change",
+    "description": "Analyse a unified diff (git diff output) against the open repository: changed files, the "
+    "functions/classes the change touches, callers outside the change that may be affected, and tests that "
+    "exercise the changed code. Use it to review or explain a change.",
+    "inputSchema": {
+        "type": "object",
+        "properties": {"diff": {"type": "string", "description": "Unified diff text, e.g. the output of git diff."}},
+        "required": ["diff"],
+    },
+}
+
+
 class RepoLensMCPServer:
     def __init__(self, settings: Settings | None = None, semantic_default: bool = False) -> None:
         self.settings = settings or Settings.from_env()
@@ -111,6 +124,7 @@ class RepoLensMCPServer:
                     "inputSchema": function["parameters"],
                 }
             )
+        tools.append(ANALYZE_CHANGE)
         tools.append(VERIFY_CITATIONS)
         return tools
 
@@ -126,6 +140,19 @@ class RepoLensMCPServer:
                 return f"Could not open {source!r}: {exc}", True
         if self.toolbox is None or self.workspace is None:
             return "No repository is open. Call open_repository first.", True
+        if name == "analyze_change":
+            from .change import ChangeError, analyze_change, parse_unified_diff
+
+            try:
+                changes = parse_unified_diff(str(arguments.get("diff", "")))
+            except ChangeError as exc:
+                return str(exc), True
+            if not changes:
+                return "The diff contains no file changes.", True
+            report = analyze_change(self.workspace.index, changes)
+            # Lines the client is shown count as evidence for verify_citations.
+            self.evidence.ranges.extend(report.evidence.ranges)
+            return report.summary_text(), False
         if name == "verify_citations":
             report = verify_citations(str(arguments.get("text", "")), self.workspace.index, self.evidence)
             if not report.citations:

@@ -4,6 +4,7 @@
     repolens search SOURCE "query"              retrieval only, no LLM needed
     repolens ask    SOURCE "question"           agent (default) or --mode quick
     repolens chat   SOURCE                      interactive conversation about the code
+    repolens explain PR-URL|DIFF|-             explain a change: impact, callers, tests, review
     repolens mcp    [SOURCE]                    serve the tools to MCP clients over stdio
     repolens eval   [--agent]                   run the benchmark in eval/
 
@@ -17,6 +18,7 @@ import contextlib
 import json
 import sys
 import time
+from pathlib import Path
 
 from . import __version__
 from .agent import Agent, AgentConfig
@@ -239,6 +241,66 @@ def cmd_chat(args) -> int:
         memory.add_turn(evidence.ranges)
 
 
+def cmd_explain(args) -> int:
+    """Explain a pull request or a diff: changed code, affected callers, tests, review."""
+    from .change import (
+        ChangeError,
+        analyze_change,
+        explain_change,
+        fetch_pull_request,
+        parse_pr_url,
+        parse_unified_diff,
+    )
+
+    settings = _settings(args)
+    title = description = ""
+    try:
+        if parse_pr_url(args.change):
+            pr = fetch_pull_request(args.change, settings.github_token)
+            diff_text, title, description = pr.diff, f"#{pr.number} {pr.title}", pr.body
+            source = args.repo or pr.snapshot_url
+        else:
+            diff_text = sys.stdin.read() if args.change == "-" else Path(args.change).read_text(encoding="utf-8")
+            source = args.repo or "."
+        changes = parse_unified_diff(diff_text)
+    except (ChangeError, OSError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 2
+    if not changes:
+        print("Error: the diff contains no file changes.", file=sys.stderr)
+        return 2
+    workspace = open_workspace(source, settings, semantic=False, progress=_progress(args.json))
+    report = analyze_change(workspace.index, changes, title=title, description=description)
+    if args.report_only:
+        _print(json.dumps({"report": report.summary_text()}, indent=2) if args.json else report.summary_text())
+        return 0
+    if not args.json:
+        _print(report.summary_text() + "\n")
+        _print(f"Explaining with {settings.llm_model}...\n")
+    try:
+        result = explain_change(
+            client_from_settings(settings), workspace.index, report, settings.llm_max_context_tokens
+        )
+    except LLMError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 2
+    if args.json:
+        _print(
+            json.dumps(
+                {
+                    "report": report.summary_text(),
+                    "explanation": result.answer,
+                    "grounding": result.grounding.to_dict(),
+                },
+                indent=2,
+            )
+        )
+        return 0
+    _print(result.answer)
+    _print_grounding(result.grounding)
+    return 0
+
+
 def cmd_mcp(args) -> int:
     from .mcp_server import main as mcp_main
 
@@ -297,6 +359,15 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--max-steps", type=int, help="Agent tool-use budget per question")
     p.add_argument("-k", "--top-k", type=int, default=6, help="Chunks retrieved in quick mode")
     p.set_defaults(func=cmd_chat, json=False)
+
+    p = sub.add_parser("explain", help="Explain a pull request or diff: impact, callers, tests, review")
+    p.add_argument("change", help="GitHub pull-request URL, a .diff/.patch file, or - for stdin (e.g. git diff | ...)")
+    p.add_argument("--repo", help="Repository to analyse against (default: the PR's head commit, or .)")
+    p.add_argument("--report-only", action="store_true", help="Impact report only, no model call")
+    p.add_argument("--json", action="store_true", help="Machine-readable output")
+    p.add_argument("--provider", choices=["ollama", "groq", "openai", "anthropic"], help="Use a provider preset")
+    p.add_argument("--model", help="Chat model (default from REPOLENS_LLM_MODEL)")
+    p.set_defaults(func=cmd_explain)
 
     p = sub.add_parser("mcp", help="Run as an MCP server (stdio) for AI assistants and IDEs")
     p.add_argument("source", nargs="?", help="Optional repository to pre-load (folder, .zip or GitHub URL)")
