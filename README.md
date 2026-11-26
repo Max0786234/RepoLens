@@ -69,6 +69,7 @@ Developers spend more time *finding* the right code than changing it. LLMs can h
 - **Hybrid code search** — BM25 with identifier-aware tokenisation and field boosts, plus embeddings, fused with Reciprocal Rank Fusion.
 - **Structure-aware chunking** — functions, classes and methods from real syntax trees: Python's `ast`, and [tree-sitter](https://tree-sitter.github.io/) for JavaScript/TypeScript, Go, Rust, Java, C, C++, C#, Ruby and PHP (with a regex fallback when a grammar is not installed); heading-based Markdown sections; also produces a symbol table.
 - **Call-graph navigation** — `find_callers` / `find_callees` answer "who calls X?" and "what does X call?" in one tool call, with the exact call lines as evidence.
+- **Explain a change** — give it a GitHub pull request or a `git diff`: it maps changed lines to the functions they belong to, uses the call graph to list callers that may be affected and tests that exercise the change, then writes a review (summary, what changed, impact, risks, what to test) with verified citations.
 - **MCP server** — `repolens mcp` exposes the same tools, plus citation verification, to any [Model Context Protocol](https://modelcontextprotocol.io) client (desktop AI assistants, IDE agents). Standard library only.
 - **Any source** — public GitHub URL (branch/commit aware, no `git` needed), ZIP or file upload, local folder; extraction is zip-slip and zip-bomb safe.
 - **Local-first, provider-agnostic** — runs fully offline with Ollama; any OpenAI-compatible API (OpenAI, Groq, Anthropic, OpenRouter, vLLM, …) is a configuration change.
@@ -177,8 +178,31 @@ repolens search ./my-project "where are JWT tokens validated" --show-code
 repolens ask    ./my-project "How does the payment retry logic work?" --trace
 repolens ask    ./my-project "Summarise the data model" --mode quick
 repolens chat   ./my-project                                      # multi-turn conversation in the terminal
+repolens explain https://github.com/psf/requests/pull/6767        # review a pull request
+git diff | repolens explain - --repo .                            # review your uncommitted changes
 repolens ask    ./my-project "..." --json                         # machine-readable result + trace
 ```
+
+### Explain a change
+
+`repolens explain` (or the **Pull request** tab / **Explain a change** panel in the web app) reviews a pull request or a diff. The impact report needs no model; the review is written by the configured model and its citations are verified. Real output for one of this repository's own commits (local `qwen3:4b-instruct`, abridged):
+
+```text
+3 files changed, +8 / -4 lines.
+Changed functions and classes:
+  repolens/rag.py:39-54 function build_context (changed lines 42-49)
+  repolens/tools.py:184-440 method ToolBox._register_all (changed lines 217-219)
+Callers outside the change that may be affected (matched by name):
+  repolens/rag.py:92 stream_answer calls build_context: ...
+Tests that exercise the changed code:
+  tests/test_agent.py:119 test_build_context_respects_budget -> build_context
+
+## Risks and What to Test
+- Missing test: test_build_context_respects_budget only verifies budget enforcement, not the citation format.
+  Recommendation: add a test that the output contains path-based labels and no numbered markers.
+```
+
+(That recommendation was correct; the test now exists.)
 
 ### Use it from an AI assistant or IDE (MCP)
 
@@ -195,7 +219,7 @@ repolens ask    ./my-project "..." --json                         # machine-read
 }
 ```
 
-The repository argument is optional: without it, the assistant calls `open_repository` itself. Tools exposed: `open_repository`, `search_code`, `read_file`, `grep`, `list_files`, `find_symbol`, `find_references`, `find_callers`, `find_callees`, `repo_overview` and `verify_citations`. No model or API key is needed on the RepoLens side: the client's model does the reasoning, RepoLens supplies evidence and checks the citations.
+The repository argument is optional: without it, the assistant calls `open_repository` itself. Tools exposed: `open_repository`, `search_code`, `read_file`, `grep`, `list_files`, `find_symbol`, `find_references`, `find_callers`, `find_callees`, `repo_overview`, `analyze_change` and `verify_citations`. No model or API key is needed on the RepoLens side: the client's model does the reasoning, RepoLens supplies evidence and checks the citations.
 
 ### Using a hosted model
 
@@ -279,6 +303,7 @@ repolens/            core package
   evaluation.py      benchmark harness  (baseline_v1.py = frozen v1 retriever)
   cli.py             `repolens` command
   mcp_server.py      Model Context Protocol server (stdio, JSON-RPC)
+  change.py          diff parsing, change impact analysis, change review
   callgraph.py       call graph for find_callers / find_callees
   ts_chunking.py     tree-sitter definitions for 10 languages
 app.py               Streamlit UI

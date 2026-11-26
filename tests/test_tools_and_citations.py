@@ -187,3 +187,13 @@ def test_prose_with_dots_is_not_a_citation():
     )
     found = {(c.path, c.start_line) for c in extract_citations(text)}
     assert found == {("src/requests/utils.py", 819), ("setup.cfg", 3)}
+
+
+def test_results_are_labelled_by_path_not_number(sample_index):
+    """Numbered labels invited unverifiable citations like 【4†L815-L824】 from gpt-oss."""
+    from repolens.rag import build_context
+
+    text = make_box(sample_index).call("search_code", {"query": "password login total", "top_k": 3}).text
+    assert text.startswith("--- ") and "[1]" not in text and "[2]" not in text
+    context = build_context(sample_index.search("password login total", top_k=3))
+    assert context.startswith("--- ") and "[1]" not in context

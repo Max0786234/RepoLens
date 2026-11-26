@@ -18,6 +18,14 @@ import streamlit as st
 
 from repolens import __version__
 from repolens.agent import Agent, AgentConfig
+from repolens.change import (
+    ChangeError,
+    analyze_change,
+    explain_change,
+    fetch_pull_request,
+    parse_pr_url,
+    parse_unified_diff,
+)
 from repolens.citations import linkify_citations
 from repolens.config import PROVIDERS, Settings
 from repolens.conversation import ConversationMemory, is_follow_up
@@ -157,6 +165,14 @@ GUIDE = [
         "skipped. The public demo limits repository size and the number of AI answers per session.",
     ),
     (
+        "Explaining a change",
+        "Give RepoLens a GitHub pull request (start page, **Pull request** tab) or paste a diff on a repository "
+        "page (**Explain a change**). It maps the changed lines to the functions and classes they belong to, uses "
+        "the call graph to list callers that may behave differently and tests that exercise the change, and then "
+        "writes a review - summary, what changed, impact, risks and what to test - with verified citations. "
+        "The **Change impact report** under the review is computed without any AI model.",
+    ),
+    (
         "Privacy",
         "The agent can only read files from the repository you load; it cannot run code or access anything else. "
         "Code passages are sent to the configured AI model to produce answers. Do not upload code you are not "
@@ -199,7 +215,7 @@ def probe_models(base_url: str, api_key: str) -> tuple[list[str], str | None]:
 
 
 def init_state() -> None:
-    defaults = {"workspace": None, "messages": [], "pending": None}
+    defaults = {"workspace": None, "messages": [], "pending": None, "pending_change": None}
     for key, value in defaults.items():
         st.session_state.setdefault(key, value)
 
@@ -299,6 +315,9 @@ def render_message(message: dict[str, Any], workspace: Workspace) -> None:
         st.markdown(
             grounding_chip(message.get("grounding")) + f'<span class="rl-meta">{meta}</span>', unsafe_allow_html=True
         )
+        if message.get("report"):
+            with st.expander("Change impact report", expanded=message.get("mode") == "change-report"):
+                st.code(message["report"], language=None)
         citations = message.get("grounding", {}).get("citations", [])
         if citations:
             with st.expander(f"Sources ({len(citations)})"):
@@ -516,6 +535,23 @@ def build_workspace(make_source) -> None:
     st.rerun()
 
 
+def queue_pull_request(url: str) -> None:
+    """Load the PR's head commit as the workspace and queue its diff for explanation."""
+    if not parse_pr_url(url):
+        st.error("That does not look like a GitHub pull request URL (https://github.com/owner/repo/pull/123).")
+        return
+    try:
+        with st.spinner("Fetching the pull request"):
+            pr = fetch_pull_request(url, settings.github_token or None)
+    except ChangeError as exc:
+        st.error(str(exc))
+        return
+    st.session_state.pending_change = {"diff": pr.diff, "title": f"#{pr.number} {pr.title}", "body": pr.body}
+    build_workspace(
+        lambda: download_github_repo(pr.snapshot_url, settings.cache_dir, LIMITS, token=settings.github_token or None)
+    )
+
+
 def render_landing() -> None:
     st.markdown(
         """
@@ -541,7 +577,7 @@ def render_landing() -> None:
         unsafe_allow_html=True,
     )
     st.markdown("#### Load a repository")
-    tab_github, tab_upload, tab_examples = st.tabs(["GitHub URL", "Upload", "Examples"])
+    tab_github, tab_pr, tab_upload, tab_examples = st.tabs(["GitHub URL", "Pull request", "Upload", "Examples"])
     with tab_github:
         url = st.text_input(
             "Public GitHub repository",
@@ -555,6 +591,15 @@ def render_landing() -> None:
                 build_workspace(
                     lambda: download_github_repo(url, settings.cache_dir, LIMITS, token=settings.github_token or None)
                 )
+    with tab_pr:
+        pr_url = st.text_input(
+            "GitHub pull request",
+            placeholder="https://github.com/psf/requests/pull/6767",
+            help="RepoLens loads the repository at the pull request's latest commit and explains the change: "
+            "what changed, which callers may be affected, which tests cover it, and what to test.",
+        )
+        if st.button("Load and explain", type="primary", disabled=not pr_url):
+            queue_pull_request(pr_url)
     with tab_upload:
         uploads = st.file_uploader(
             "Project ZIP or source files",
@@ -627,6 +672,21 @@ st.write("")
 for message in st.session_state.messages:
     render_message(message, workspace)
 
+with st.expander("Explain a change (pull request or diff)"):
+    st.caption(
+        "Paste a diff (for example the output of git diff) to review it against this repository, or a GitHub pull "
+        "request link to load that pull request's code. You get the changed functions, callers that may be "
+        "affected, related tests and a review with verified citations."
+    )
+    change_pr = st.text_input("Pull request URL", key="change_pr", placeholder="https://github.com/owner/repo/pull/123")
+    change_diff = st.text_area("or paste a diff", key="change_diff", height=140, placeholder="diff --git a/... b/...")
+    if st.button("Explain change", disabled=not (change_pr or change_diff)):
+        if change_pr:
+            queue_pull_request(change_pr)
+        else:
+            st.session_state.pending_change = {"diff": change_diff, "title": "Pasted diff", "body": ""}
+            st.rerun()
+
 if not st.session_state.messages:
     st.markdown('<div class="rl-section">Suggested questions</div>', unsafe_allow_html=True)
     cols = st.columns(len(EXAMPLE_QUESTIONS))
@@ -637,6 +697,59 @@ if not st.session_state.messages:
     with st.expander("How to read the answers"):
         st.markdown(GUIDE[1][1])
         st.markdown(GUIDE[3][1])
+
+
+def make_llm():
+    client = make_chat_client(
+        settings.llm_base_url,
+        settings.llm_model,
+        settings.llm_api_key,
+        settings.llm_timeout,
+        settings.ollama_num_ctx,
+        settings.llm_max_output_tokens,
+        settings.reasoning_effort,
+    )
+    if hasattr(client, "limiter"):
+        client.limiter.on_wait = lambda seconds, reason: st.toast(f"{reason} Waiting {seconds:.0f}s.")
+    return client
+
+
+pending_change = st.session_state.pending_change
+if pending_change:
+    st.session_state.pending_change = None
+    try:
+        changes = parse_unified_diff(pending_change["diff"])
+    except ChangeError as exc:
+        changes = None
+        st.error(str(exc))
+    if changes == []:
+        st.warning("The diff contains no file changes.")
+    if changes:
+        st.session_state.messages.append({"role": "user", "content": f"Explain this change: {pending_change['title']}"})
+        report = analyze_change(workspace.index, changes, pending_change["title"], pending_change.get("body", ""))
+        used = sum(1 for m in st.session_state.messages if m["role"] == "assistant" and m.get("mode") != "search")
+        if mode == "search" or (MAX_QUESTIONS and used >= MAX_QUESTIONS):
+            note = "Impact report only (Search only mode, or the AI answer limit for this session was reached)."
+            message = {"role": "assistant", "mode": "change-report", "content": note, "report": report.summary_text()}
+        else:
+            started = time.perf_counter()
+            with st.spinner("Reviewing the change"):
+                try:
+                    result = explain_change(make_llm(), workspace.index, report, settings.llm_max_context_tokens)
+                    answer, grounding = result.answer, result.grounding.to_dict()
+                except LLMError as exc:
+                    answer, grounding = f"**The model could not be reached:** {exc}", {}
+            message = {
+                "role": "assistant",
+                "mode": "change",
+                "content": answer,
+                "report": report.summary_text(),
+                "grounding": grounding,
+                "evidence": [r.__dict__ for r in report.evidence.ranges][:300],
+                "meta": f"Change review · {settings.llm_model} · {time.perf_counter() - started:.1f}s",
+            }
+        st.session_state.messages.append(message)
+        st.rerun()
 
 prompt = st.chat_input("Ask about this codebase, e.g. How does authentication work?")
 if st.session_state.pending:
@@ -671,17 +784,7 @@ if prompt:
         render_message(message, workspace)
         st.stop()
 
-    llm = make_chat_client(
-        settings.llm_base_url,
-        settings.llm_model,
-        settings.llm_api_key,
-        settings.llm_timeout,
-        settings.ollama_num_ctx,
-        settings.llm_max_output_tokens,
-        settings.reasoning_effort,
-    )
-    if hasattr(llm, "limiter"):
-        llm.limiter.on_wait = lambda seconds, reason: st.toast(f"{reason} Waiting {seconds:.0f}s.")
+    llm = make_llm()
     with st.chat_message("assistant", avatar=ASSISTANT_AVATAR):
         if history and is_follow_up(prompt):
             st.caption("Follow-up detected: searching together with your previous question.")

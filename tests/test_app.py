@@ -22,7 +22,7 @@ def test_landing_page_renders_without_a_model_server():
     at = AppTest.from_file(APP, default_timeout=60).run()
     assert not at.exception
     assert any("Understand any codebase" in m.value for m in at.markdown)
-    assert [t.label for t in at.tabs] == ["GitHub URL", "Upload", "Examples"]
+    assert [t.label for t in at.tabs] == ["GitHub URL", "Pull request", "Upload", "Examples"]
 
 
 def test_index_sample_and_search_without_llm():
@@ -114,3 +114,42 @@ def test_public_demo_hides_settings_and_caps_questions(monkeypatch):
     assert len(answers) == 1  # the second question was refused
     assert any("public demo allows 1" in w.value for w in at.warning)
     assert len(client.calls) == 1
+
+
+def _text_py_diff():
+    """A one-line change inside repolens/text.py:stem (the sample app indexes RepoLens itself)."""
+    lines = (Path(APP).parent / "repolens" / "text.py").read_text(encoding="utf-8").splitlines()
+    number = next(i for i, line in enumerate(lines, start=1) if line.startswith("def stem("))
+    old = lines[number]
+    return number + 1, (
+        "--- a/repolens/text.py\n+++ b/repolens/text.py\n"
+        f"@@ -{number + 1} +{number + 1} @@\n-{old}\n+{old}  # reviewed\n"
+    )
+
+
+def test_explain_change_panel_reviews_a_pasted_diff(monkeypatch):
+    from repolens.llm import ChatResponse
+
+    number, diff = _text_py_diff()
+    client = _scripted(monkeypatch, [ChatResponse(f"**Summary** A comment in repolens/text.py:{number}.")])
+    at = _indexed_app()
+    at.text_area(key="change_diff").set_value(diff).run()
+    next(b for b in at.button if b.label == "Explain change").click().run()
+    assert not at.exception
+    message = at.session_state.messages[-1]
+    assert message["mode"] == "change"
+    assert "stem" in message["report"]  # the changed function is identified
+    assert message["grounding"]["verified"] == 1
+    assert "Changed code after the change" in client.calls[0][-1]["content"]
+
+
+def test_explain_change_in_search_mode_needs_no_model(monkeypatch):
+    _, diff = _text_py_diff()
+    client = _scripted(monkeypatch, [])
+    at = _indexed_app()
+    at.sidebar.radio[0].set_value("search").run()
+    at.text_area(key="change_diff").set_value(diff).run()
+    next(b for b in at.button if b.label == "Explain change").click().run()
+    assert not at.exception
+    assert at.session_state.messages[-1]["mode"] == "change-report"
+    assert client.calls == []
