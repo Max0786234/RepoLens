@@ -4,6 +4,7 @@
     repolens search SOURCE "query"              retrieval only, no LLM needed
     repolens ask    SOURCE "question"           agent (default) or --mode quick
     repolens chat   SOURCE                      interactive conversation about the code
+    repolens mcp    [SOURCE]                    serve the tools to MCP clients over stdio
     repolens eval   [--agent]                   run the benchmark in eval/
 
 SOURCE is a local folder, a .zip file or a GitHub URL.
@@ -238,6 +239,12 @@ def cmd_chat(args) -> int:
         memory.add_turn(evidence.ranges)
 
 
+def cmd_mcp(args) -> int:
+    from .mcp_server import main as mcp_main
+
+    return mcp_main(args.source, args.semantic)
+
+
 def cmd_eval(args) -> int:
     from .evaluation import main as eval_main
 
@@ -290,6 +297,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--max-steps", type=int, help="Agent tool-use budget per question")
     p.add_argument("-k", "--top-k", type=int, default=6, help="Chunks retrieved in quick mode")
     p.set_defaults(func=cmd_chat, json=False)
+
+    p = sub.add_parser("mcp", help="Run as an MCP server (stdio) for AI assistants and IDEs")
+    p.add_argument("source", nargs="?", help="Optional repository to pre-load (folder, .zip or GitHub URL)")
+    p.add_argument("--semantic", action="store_true", help="Build embeddings for semantic search")
+    p.set_defaults(func=cmd_mcp)
 
     p = sub.add_parser("eval", help="Run the retrieval/agent benchmark")
     from .evaluation import add_arguments

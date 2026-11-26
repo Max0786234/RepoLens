@@ -69,6 +69,7 @@ Developers spend more time *finding* the right code than changing it. LLMs can h
 - **Hybrid code search** — BM25 with identifier-aware tokenisation and field boosts, plus embeddings, fused with Reciprocal Rank Fusion.
 - **Structure-aware chunking** — functions, classes and methods from real syntax trees: Python's `ast`, and [tree-sitter](https://tree-sitter.github.io/) for JavaScript/TypeScript, Go, Rust, Java, C, C++, C#, Ruby and PHP (with a regex fallback when a grammar is not installed); heading-based Markdown sections; also produces a symbol table.
 - **Call-graph navigation** — `find_callers` / `find_callees` answer "who calls X?" and "what does X call?" in one tool call, with the exact call lines as evidence.
+- **MCP server** — `repolens mcp` exposes the same tools, plus citation verification, to any [Model Context Protocol](https://modelcontextprotocol.io) client (desktop AI assistants, IDE agents). Standard library only.
 - **Any source** — public GitHub URL (branch/commit aware, no `git` needed), ZIP or file upload, local folder; extraction is zip-slip and zip-bomb safe.
 - **Local-first, provider-agnostic** — runs fully offline with Ollama; any OpenAI-compatible API (OpenAI, Groq, Anthropic, OpenRouter, vLLM, …) is a configuration change.
 - **Fast after the first run** — the index is persisted and reused until files change; embeddings are cached per chunk, so editing one file re-embeds only its chunks.
@@ -179,6 +180,23 @@ repolens chat   ./my-project                                      # multi-turn c
 repolens ask    ./my-project "..." --json                         # machine-readable result + trace
 ```
 
+### Use it from an AI assistant or IDE (MCP)
+
+`repolens mcp` runs RepoLens as a [Model Context Protocol](https://modelcontextprotocol.io) server over stdio, so an AI assistant can search and read a repository through RepoLens and have its own answer checked with `verify_citations`. Add it to your MCP client's configuration (the exact file depends on the client):
+
+```json
+{
+  "mcpServers": {
+    "repolens": {
+      "command": "repolens",
+      "args": ["mcp", "https://github.com/psf/requests"]
+    }
+  }
+}
+```
+
+The repository argument is optional: without it, the assistant calls `open_repository` itself. Tools exposed: `open_repository`, `search_code`, `read_file`, `grep`, `list_files`, `find_symbol`, `find_references`, `find_callers`, `find_callees`, `repo_overview` and `verify_citations`. No model or API key is needed on the RepoLens side: the client's model does the reasoning, RepoLens supplies evidence and checks the citations.
+
 ### Using a hosted model
 
 Any OpenAI-compatible endpoint works. The quickest is Groq's free tier: put your key in a `.env` file (git-ignored) and pick the preset.
@@ -260,6 +278,9 @@ repolens/            core package
   conversation.py    follow-up detection + conversation memory
   evaluation.py      benchmark harness  (baseline_v1.py = frozen v1 retriever)
   cli.py             `repolens` command
+  mcp_server.py      Model Context Protocol server (stdio, JSON-RPC)
+  callgraph.py       call graph for find_callers / find_callees
+  ts_chunking.py     tree-sitter definitions for 10 languages
 app.py               Streamlit UI
 eval/                benchmark repos, questions and results
 tests/               pytest suite (no network or model needed)
