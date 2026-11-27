@@ -62,8 +62,9 @@ def test_layered_dependencies_at_file_level(tmp_path):
     assert set(amap.modules) == {"app/main.py", "app/service.py", "app/db.py"}  # tests/examples excluded
     assert amap.edges == {("app/main.py", "app/service.py"): 1, ("app/service.py", "app/db.py"): 2}
     text = amap.summary_text()
-    assert "Entry points (call others, nobody calls them): app/main.py" in text
-    assert "app/db.py: used by 2 call sites" in text
+    assert "All modules are under app/" in text
+    assert "Entry points (call others, nobody calls them): main.py" in text
+    assert "db.py: used by 2 call sites" in text
 
 
 def test_tests_and_examples_can_be_included(tmp_path):
@@ -115,3 +116,20 @@ def test_renderers(tmp_path):
 def test_example_path_detection():
     assert is_example_path("examples/auth/index.js") and is_example_path("docs/conf.py")
     assert not is_example_path("src/examples_helper.py") and not is_example_path("lib/app.py")
+
+
+def test_common_prefix_is_shown_once(tmp_path):
+    files = {
+        f"src/pkg/{name}": content
+        for name, content in {k.split("/")[-1]: v for k, v in LAYERED.items() if k.startswith("app/")}.items()
+    }
+    amap = build_architecture_map(CodeIndex.build(write(tmp_path, files)))
+    assert amap.common_prefix == "src/pkg/"
+    assert '"main.py<br/>' in amap.to_mermaid() and "All modules are under src/pkg/" in amap.summary_text()
+
+
+def test_dot_draws_only_the_strongest_edges(tmp_path):
+    amap = build_architecture_map(CodeIndex.build(write(tmp_path, LAYERED)))
+    dot = amap.to_dot(max_edges=1)
+    assert '"app/service.py" -> "app/db.py"' in dot and '"app/main.py" -> ' not in dot
+    assert '"app/main.py" [label' not in dot  # nodes without drawn edges are left out

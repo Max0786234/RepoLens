@@ -5,6 +5,7 @@
     repolens ask    SOURCE "question"           agent (default) or --mode quick
     repolens chat   SOURCE                      interactive conversation about the code
     repolens explain PR-URL|DIFF|-             explain a change: impact, callers, tests, review
+    repolens map    SOURCE [--format mermaid]  architecture map of module dependencies
     repolens mcp    [SOURCE]                    serve the tools to MCP clients over stdio
     repolens eval   [--agent]                   run the benchmark in eval/
 
@@ -301,6 +302,28 @@ def cmd_explain(args) -> int:
     return 0
 
 
+def cmd_map(args) -> int:
+    """Print the architecture map: module dependencies derived from the call graph."""
+    from .archmap import build_architecture_map
+
+    settings = _settings(args)
+    workspace = open_workspace(args.source, settings, semantic=False, progress=_progress(args.format != "text"))
+    amap = build_architecture_map(
+        workspace.index,
+        max_nodes=args.max_nodes,
+        level=args.level,
+        include_tests=args.include_tests,
+        include_examples=args.include_examples,
+    )
+    if args.format == "mermaid":
+        _print(amap.to_mermaid())
+    elif args.format == "dot":
+        _print(amap.to_dot())
+    else:
+        _print(f"{workspace.source.label}\n" + amap.summary_text())
+    return 0
+
+
 def cmd_mcp(args) -> int:
     from .mcp_server import main as mcp_main
 
@@ -359,6 +382,15 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--max-steps", type=int, help="Agent tool-use budget per question")
     p.add_argument("-k", "--top-k", type=int, default=6, help="Chunks retrieved in quick mode")
     p.set_defaults(func=cmd_chat, json=False)
+
+    p = sub.add_parser("map", help="Architecture map: which modules depend on which")
+    p.add_argument("source", help="Local folder, .zip file or GitHub URL")
+    p.add_argument("--format", choices=["text", "mermaid", "dot"], default="text")
+    p.add_argument("--level", choices=["auto", "file", "folder"], default="auto")
+    p.add_argument("--max-nodes", type=int, default=16, help="Fold smaller modules into '(other)' beyond this")
+    p.add_argument("--include-tests", action="store_true")
+    p.add_argument("--include-examples", action="store_true", help="Include examples/, docs/, demo/ code")
+    p.set_defaults(func=cmd_map)
 
     p = sub.add_parser("explain", help="Explain a pull request or diff: impact, callers, tests, review")
     p.add_argument("change", help="GitHub pull-request URL, a .diff/.patch file, or - for stdin (e.g. git diff | ...)")

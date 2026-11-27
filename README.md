@@ -70,6 +70,7 @@ Developers spend more time *finding* the right code than changing it. LLMs can h
 - **Structure-aware chunking** — functions, classes and methods from real syntax trees: Python's `ast`, and [tree-sitter](https://tree-sitter.github.io/) for JavaScript/TypeScript, Go, Rust, Java, C, C++, C#, Ruby and PHP (with a regex fallback when a grammar is not installed); heading-based Markdown sections; also produces a symbol table.
 - **Call-graph navigation** — `find_callers` / `find_callees` answer "who calls X?" and "what does X call?" in one tool call, with the exact call lines as evidence.
 - **Explain a change** — give it a GitHub pull request or a `git diff`: it maps changed lines to the functions they belong to, uses the call graph to list callers that may be affected and tests that exercise the change, then writes a review (summary, what changed, impact, risks, what to test) with verified citations.
+- **Architecture map** — which modules depend on which, derived from the call graph (precise rather than noisy: ambiguous calls are skipped and counted); interactive in the web app, `repolens map` prints text, Mermaid or Graphviz.
 - **MCP server** — `repolens mcp` exposes the same tools, plus citation verification, to any [Model Context Protocol](https://modelcontextprotocol.io) client (desktop AI assistants, IDE agents). Standard library only.
 - **Any source** — public GitHub URL (branch/commit aware, no `git` needed), ZIP or file upload, local folder; extraction is zip-slip and zip-bomb safe.
 - **Local-first, provider-agnostic** — runs fully offline with Ollama; any OpenAI-compatible API (OpenAI, Groq, Anthropic, OpenRouter, vLLM, …) is a configuration change.
@@ -180,6 +181,7 @@ repolens ask    ./my-project "Summarise the data model" --mode quick
 repolens chat   ./my-project                                      # multi-turn conversation in the terminal
 repolens explain https://github.com/psf/requests/pull/6767        # review a pull request
 git diff | repolens explain - --repo .                            # review your uncommitted changes
+repolens map    ./my-project --format mermaid                     # architecture map as a Mermaid diagram
 repolens ask    ./my-project "..." --json                         # machine-readable result + trace
 ```
 
@@ -219,7 +221,7 @@ Tests that exercise the changed code:
 }
 ```
 
-The repository argument is optional: without it, the assistant calls `open_repository` itself. Tools exposed: `open_repository`, `search_code`, `read_file`, `grep`, `list_files`, `find_symbol`, `find_references`, `find_callers`, `find_callees`, `repo_overview`, `analyze_change` and `verify_citations`. No model or API key is needed on the RepoLens side: the client's model does the reasoning, RepoLens supplies evidence and checks the citations.
+The repository argument is optional: without it, the assistant calls `open_repository` itself. Tools exposed: `open_repository`, `search_code`, `read_file`, `grep`, `list_files`, `find_symbol`, `find_references`, `find_callers`, `find_callees`, `repo_overview`, `analyze_change`, `architecture_map` and `verify_citations`. No model or API key is needed on the RepoLens side: the client's model does the reasoning, RepoLens supplies evidence and checks the citations.
 
 ### Using a hosted model
 
@@ -304,6 +306,7 @@ repolens/            core package
   cli.py             `repolens` command
   mcp_server.py      Model Context Protocol server (stdio, JSON-RPC)
   change.py          diff parsing, change impact analysis, change review
+  archmap.py         architecture map (module dependencies) from the call graph
   callgraph.py       call graph for find_callers / find_callees
   ts_chunking.py     tree-sitter definitions for 10 languages
 app.py               Streamlit UI

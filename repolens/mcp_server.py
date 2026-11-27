@@ -81,6 +81,20 @@ ANALYZE_CHANGE = {
 }
 
 
+ARCHITECTURE_MAP = {
+    "name": "architecture_map",
+    "description": "Summarise the open repository's architecture: which modules depend on which (from the call "
+    "graph), the most depended-on modules and the entry points. Optionally as a Mermaid diagram.",
+    "inputSchema": {
+        "type": "object",
+        "properties": {
+            "format": {"type": "string", "enum": ["text", "mermaid"], "description": "text (default) or mermaid"},
+            "include_tests": {"type": "boolean", "description": "Include test code (default false)."},
+        },
+    },
+}
+
+
 class RepoLensMCPServer:
     def __init__(self, settings: Settings | None = None, semantic_default: bool = False) -> None:
         self.settings = settings or Settings.from_env()
@@ -125,6 +139,7 @@ class RepoLensMCPServer:
                 }
             )
         tools.append(ANALYZE_CHANGE)
+        tools.append(ARCHITECTURE_MAP)
         tools.append(VERIFY_CITATIONS)
         return tools
 
@@ -140,6 +155,11 @@ class RepoLensMCPServer:
                 return f"Could not open {source!r}: {exc}", True
         if self.toolbox is None or self.workspace is None:
             return "No repository is open. Call open_repository first.", True
+        if name == "architecture_map":
+            from .archmap import build_architecture_map
+
+            amap = build_architecture_map(self.workspace.index, include_tests=bool(arguments.get("include_tests")))
+            return (amap.to_mermaid() if arguments.get("format") == "mermaid" else amap.summary_text()), False
         if name == "analyze_change":
             from .change import ChangeError, analyze_change, parse_unified_diff
 

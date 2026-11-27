@@ -114,3 +114,11 @@ def test_analyze_change_tool(server, sample_repo):
     assert "VERIFIED" in report  # lines from the change report count as evidence
     _, is_error = tool(server, "analyze_change", diff="not a diff")
     assert is_error
+
+
+def test_architecture_map_tool(server, sample_repo):
+    tool(server, "open_repository", source=str(sample_repo))
+    text, is_error = tool(server, "architecture_map")
+    assert not is_error and text.startswith("Architecture map")
+    mermaid, _ = tool(server, "architecture_map", format="mermaid")
+    assert mermaid.startswith("flowchart LR")

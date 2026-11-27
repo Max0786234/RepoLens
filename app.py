@@ -18,6 +18,7 @@ import streamlit as st
 
 from repolens import __version__
 from repolens.agent import Agent, AgentConfig
+from repolens.archmap import build_architecture_map
 from repolens.change import (
     ChangeError,
     analyze_change,
@@ -163,6 +164,14 @@ GUIDE = [
         "parsing for Python, JavaScript/TypeScript, Go, Rust, Java, Kotlin, C#, Swift, C/C++, Ruby and PHP; other "
         "text files are indexed too. Dependencies, build output, binaries and secret files (such as `.env`) are "
         "skipped. The public demo limits repository size and the number of AI answers per session.",
+    ),
+    (
+        "Architecture map",
+        "On a repository page, **Architecture map** draws which modules depend on which. It is built from the call "
+        "graph: an arrow from A to B means code in A calls functions or classes defined in B, labelled with the "
+        "number of call sites. Small projects are shown file by file, larger ones by folder. Tests and example/docs "
+        "code are excluded by default, and calls to names defined in several files are skipped rather than "
+        "guessed, so the map can miss edges but avoids inventing them. Download it as Mermaid for your own docs.",
     ),
     (
         "Explaining a change",
@@ -671,6 +680,34 @@ st.write("")
 
 for message in st.session_state.messages:
     render_message(message, workspace)
+
+with st.expander("Architecture map"):
+    st.caption(
+        "Which parts of the code depend on which, computed from the call graph: an arrow means code in one module "
+        "calls functions or classes defined in another, labelled with the number of call sites. Tests and "
+        "example/docs code are left out, and calls to names defined in several files are skipped rather than guessed."
+    )
+    map_cols = st.columns(3)
+    map_level = map_cols[0].selectbox("Detail", ["auto", "file", "folder"], key="map_level")
+    map_tests = map_cols[1].toggle("Include tests", key="map_tests")
+    map_examples = map_cols[2].toggle("Include examples and docs", key="map_examples")
+    amap = build_architecture_map(
+        workspace.index, level=map_level, include_tests=map_tests, include_examples=map_examples
+    )
+    if amap.edges:
+        drawn = min(len(amap.edges), 18)
+        if drawn < len(amap.edges):
+            st.caption(f"Diagram shows the {drawn} strongest of {len(amap.edges)} dependencies; all are listed below.")
+        st.graphviz_chart(amap.to_dot(max_edges=18), use_container_width=True)
+    else:
+        st.info("No cross-module dependencies were found for this selection.")
+    st.code(amap.summary_text(max_edges=15), language=None)
+    st.download_button(
+        "Download as Mermaid",
+        amap.to_mermaid(),
+        file_name="architecture.mmd",
+        help="Mermaid diagrams render directly in GitHub and many Markdown editors.",
+    )
 
 with st.expander("Explain a change (pull request or diff)"):
     st.caption(

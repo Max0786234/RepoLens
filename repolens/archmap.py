@@ -51,6 +51,22 @@ class ArchitectureMap:
     def outgoing(self, name: str) -> int:
         return sum(count for (src, _dst), count in self.edges.items() if src == name)
 
+    @property
+    def common_prefix(self) -> str:
+        """Folder shared by every module (e.g. ``src/requests/``), shown once instead of on every label."""
+        names = [m for m in self.modules if not m.startswith("(")]
+        if len(names) < 2:
+            return ""
+        prefix = names[0]
+        for name in names[1:]:
+            while not name.startswith(prefix):
+                prefix = prefix[: prefix.rstrip("/").rfind("/") + 1] if "/" in prefix.rstrip("/") else ""
+        return prefix if prefix.endswith("/") else ""
+
+    def short(self, name: str) -> str:
+        prefix = self.common_prefix
+        return name[len(prefix) :] or name if prefix and name.startswith(prefix) else name
+
     # ------------------------------------------------------------ renderers
 
     def summary_text(self, max_edges: int = 30) -> str:
@@ -58,6 +74,8 @@ class ArchitectureMap:
             f"Architecture map ({self.level} level): {len(self.modules)} modules, "
             f"{len(self.edges)} dependencies from {sum(self.edges.values())} call sites."
         ]
+        if self.common_prefix:
+            lines.append(f"All modules are under {self.common_prefix}")
         if self.skipped_ambiguous:
             lines.append(f"{self.skipped_ambiguous} calls to names defined in several files were left out (ambiguous).")
         if self.merged:
@@ -66,41 +84,55 @@ class ArchitectureMap:
         lines.append("\nMost depended-on modules:")
         for name in core[:6]:
             if self.incoming(name):
-                lines.append(f"  {name}: used by {self.incoming(name)} call sites")
+                lines.append(f"  {self.short(name)}: used by {self.incoming(name)} call sites")
         entry = [m for m in self.modules if self.outgoing(m) and not self.incoming(m)]
         if entry:
-            lines.append("\nEntry points (call others, nobody calls them): " + ", ".join(sorted(entry)[:10]))
+            lines.append(
+                "\nEntry points (call others, nobody calls them): "
+                + ", ".join(self.short(m) for m in sorted(entry)[:10])
+            )
         lines.append("\nDependencies (caller -> callee: call sites):")
         for (src, dst), count in sorted(self.edges.items(), key=lambda item: -item[1])[:max_edges]:
-            lines.append(f"  {src} -> {dst}: {count}")
+            lines.append(f"  {self.short(src)} -> {self.short(dst)}: {count}")
         return "\n".join(lines)
 
     def to_mermaid(self) -> str:
         ids = {name: f"m{i}" for i, name in enumerate(sorted(self.modules))}
         lines = ["flowchart LR"]
         for name, info in sorted(self.modules.items()):
+            shown = self.short(name)
             label = (
-                f"{name}<br/>{info.files} files · {info.lines:,} lines"
+                f"{shown}<br/>{info.files} files · {info.lines:,} lines"
                 if self.level == "folder"
-                else f"{name}<br/>{info.lines:,} lines"
+                else f"{shown}<br/>{info.lines:,} lines"
             )
             lines.append(f'    {ids[name]}["{_mermaid_escape(label)}"]')
         for (src, dst), count in sorted(self.edges.items()):
             lines.append(f"    {ids[src]} -->|{count}| {ids[dst]}")
         return "\n".join(lines)
 
-    def to_dot(self) -> str:
-        top = max(self.edges.values(), default=1)
+    def strongest_edges(self, max_edges: int | None) -> dict[tuple[str, str], int]:
+        """The ``max_edges`` heaviest dependencies (all of them if ``None``)."""
+        ranked = sorted(self.edges.items(), key=lambda item: (-item[1], item[0]))
+        return dict(ranked if max_edges is None else ranked[:max_edges])
+
+    def to_dot(self, max_edges: int | None = 18) -> str:
+        """Graphviz DOT. Only the strongest dependencies are drawn so the diagram stays readable."""
+        edges = self.strongest_edges(max_edges)
+        shown = {name for pair in edges for name in pair}
+        top = max(edges.values(), default=1)
         lines = [
             "digraph architecture {",
-            '  rankdir=LR; bgcolor="transparent";',
+            '  rankdir=LR; bgcolor="transparent"; concentrate=true; nodesep=0.35; ranksep=0.7;',
             '  node [shape=box, style="rounded,filled", fillcolor="#eef3ff", color="#3b6ff5", fontname="Helvetica", fontsize=11];',
-            '  edge [color="#8a94a6", fontname="Helvetica", fontsize=9, fontcolor="#5b6474"];',
+            '  edge [color="#8a94a6", fontname="Helvetica", fontsize=9, fontcolor="#5b6474", arrowsize=0.7];',
         ]
         for name, info in sorted(self.modules.items()):
+            if name not in shown:
+                continue
             detail = f"{info.files} files, {info.lines:,} lines" if self.level == "folder" else f"{info.lines:,} lines"
-            lines.append(f'  "{_dot_escape(name)}" [label="{_dot_escape(name)}\\n{detail}"];')
-        for (src, dst), count in sorted(self.edges.items()):
+            lines.append(f'  "{_dot_escape(name)}" [label="{_dot_escape(self.short(name))}\\n{detail}"];')
+        for (src, dst), count in sorted(edges.items()):
             width = 1 + 3 * count / top
             lines.append(f'  "{_dot_escape(src)}" -> "{_dot_escape(dst)}" [label="{count}", penwidth={width:.1f}];')
         lines.append("}")

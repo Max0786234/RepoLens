@@ -153,3 +153,9 @@ def test_explain_change_in_search_mode_needs_no_model(monkeypatch):
     assert not at.exception
     assert at.session_state.messages[-1]["mode"] == "change-report"
     assert client.calls == []
+
+
+def test_architecture_map_section_renders():
+    at = _indexed_app()
+    assert not at.exception
+    assert any(c.value.startswith("Architecture map (") for c in at.code)
