@@ -36,6 +36,7 @@ class CallSite:
     callee_name: str
     line: int
     text: str
+    attribute: bool = False  # obj.name(...) rather than name(...)
 
 
 class CallGraph:
@@ -65,7 +66,10 @@ class CallGraph:
                     name = match.group(1)
                     if name in _NOT_CALLS or name not in self.by_name:
                         continue
-                    site = CallSite(caller, name, number, raw.strip()[:160])
+                    before = code[: match.start()].rstrip()
+                    site = CallSite(
+                        caller, name, number, raw.strip()[:160], attribute=before.endswith((".", "->", "::"))
+                    )
                     self.calls_from[self._key(caller)].append(site)
                     self.calls_to[name].append(site)
 

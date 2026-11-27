@@ -183,13 +183,20 @@ def _js_extra(node, source: bytes) -> tuple[str, str] | None:
         expr = node.named_children[0]
         if expr.type == "assignment_expression":
             left, right = expr.child_by_field_name("left"), expr.child_by_field_name("right")
-            # Chained aliases: res.contentType = res.type = function () {...}
+            # Chained aliases: res.set = res.header = function () {...} defines BOTH names.
+            # The innermost name comes first (it is the primary symbol); "|" separates aliases.
+            names = [left]
             while right is not None and right.type == "assignment_expression":
                 left, right = right.child_by_field_name("left"), right.child_by_field_name("right")
+                names.append(left)
             if left is not None and right is not None and right.type in FUNCTION_VALUES:
-                name = _text(left, source).replace(".prototype.", ".")
-                parts = name.split(".")
-                return (".".join(parts[-2:]) if len(parts) > 1 else name), "function"
+                cleaned = []
+                for node_name in reversed(names):
+                    if node_name is None:
+                        continue
+                    parts = _text(node_name, source).replace(".prototype.", ".").split(".")
+                    cleaned.append(".".join(parts[-2:]) if len(parts) > 1 else parts[0])
+                return "|".join(dict.fromkeys(cleaned)), "function"
         if expr.type == "call_expression":
             callee = expr.child_by_field_name("function")
             args = expr.child_by_field_name("arguments")
@@ -255,15 +262,13 @@ def collect_definitions(text: str, language: str) -> list[tuple[int, int, int, s
                                   "statement_block", "program", "source_file", "translation_unit"} or child.type == "type_declaration":  # fmt: skip
                     visit(child, prefix, depth)
                 continue
-            name = name.strip()
-            if "." in name or "::" in name or not prefix:
-                qualname = name
-            else:
-                qualname = f"{prefix}.{name}"
             if prefix and kind == "function":
                 kind = "method"
             start = _start_with_comments(target)
-            found.append((start, target.start_point[0], target.end_point[0], kind, qualname))
+            for alias in name.split("|"):  # one symbol per alias, same code range
+                alias = alias.strip()
+                qualname = alias if ("." in alias or "::" in alias or not prefix) else f"{prefix}.{alias}"
+                found.append((start, target.start_point[0], target.end_point[0], kind, qualname))
             if kind in CONTAINERS:
                 visit(child, qualname.split(" (")[0], depth + 1)
 

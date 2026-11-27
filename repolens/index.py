@@ -29,7 +29,7 @@ from .chunking import Chunk, Symbol, chunk_file
 from .languages import detect_language, is_doc, is_ignored_path, is_test_path
 from .text import tokenize, tokenize_query
 
-INDEX_VERSION = 4
+INDEX_VERSION = 5
 MAX_FILE_BYTES = 1_000_000
 MAX_FILES = 8_000
 
